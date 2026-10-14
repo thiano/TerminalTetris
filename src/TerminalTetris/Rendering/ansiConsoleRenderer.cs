@@ -6,8 +6,8 @@ using TerminalTetris.Models;
 namespace TerminalTetris.Rendering;
 
 /*
- * Rendert het speelveld met pure ASCII-karakters (toetsenbord-only).
- * Gebruikt ANSI escape codes voor positionering en kleurcodering zonder console flicker.
+ * Rendert het speelveld gecentreerd in elk terminalformaat.
+ * Detecteert vensterwijzigingen en past dynamische padding toe.
  */
 public class ansiConsoleRenderer : iRenderer
 {
@@ -16,19 +16,28 @@ public class ansiConsoleRenderer : iRenderer
     private const string AnsiResetCursor = "\x1b[H";
     private const string AnsiResetFormat = "\x1b[0m";
 
+    private const int LayoutWidth = 43;  // Breedte van speelveld + tussenruimte + sidebar
+    private const int LayoutHeight = 25; // Totale verticale hoogte inclusief headers en controls
+
+    private int _lastWindowWidth;
+    private int _lastWindowHeight;
+
     public void Initialize()
     {
         Console.OutputEncoding = Encoding.UTF8;
         Console.CursorVisible = false;
         Console.Clear();
         Console.Write(AnsiHideCursor);
+
+        _lastWindowWidth = Console.WindowWidth;
+        _lastWindowHeight = Console.WindowHeight;
     }
 
     public void Cleanup()
     {
         Console.Write(AnsiShowCursor + AnsiResetFormat);
         Console.CursorVisible = true;
-        Console.SetCursorPosition(0, board.DefaultRows + 6);
+        Console.Clear();
     }
 
     public void Render(
@@ -39,16 +48,41 @@ public class ansiConsoleRenderer : iRenderer
         scoreManager scoreManager,
         gameState state)
     {
-        var buffer = new StringBuilder(2048);
+        CheckAndHandleWindowResize();
 
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
+
+        // Scherm te klein controle
+        if (Console.WindowWidth < LayoutWidth || Console.WindowHeight < LayoutHeight)
+        {
+            RenderTooSmallWarning(Console.WindowWidth, Console.WindowHeight);
+            return;
+        }
+
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
+        int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
+        string pad = new(' ', leftPadding);
+
+        var buffer = new StringBuilder(4096);
         buffer.Append(AnsiResetCursor);
 
+        // Verticale padding bovenaan
+        for (int i = 0; i < topPadding; i++)
+        {
+            buffer.AppendLine();
+        }
+
         // Header
+        buffer.Append(pad);
         buffer.AppendLine("+-----------------------------------------+");
+        buffer.Append(pad);
         buffer.AppendLine("|         TERMINAL TETRIS (.NET)          |");
+        buffer.Append(pad);
         buffer.AppendLine("+-----------------------------------------+");
 
-        // Bovenrand speelveld en zijpaneel
+        // Bovenrand
+        buffer.Append(pad);
         buffer.Append("+");
         buffer.Append(new string('-', board.Columns * 2));
         buffer.AppendLine("+   +---------------------------+");
@@ -56,6 +90,7 @@ public class ansiConsoleRenderer : iRenderer
         // Speelveld rijen
         for (int y = 0; y < board.Rows; y++)
         {
+            buffer.Append(pad);
             buffer.Append("|");
 
             for (int x = 0; x < board.Columns; x++)
@@ -68,7 +103,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else if (ghostPiece != null && ghostPiece.OccupiedPositions().Contains(pos))
                 {
-                    buffer.Append("\x1b[90m::\x1b[0m"); // Schaduw / projectie met dubbele dubbele punt
+                    buffer.Append("\x1b[90m::\x1b[0m");
                 }
                 else if (board[x, y] is { } lockedType)
                 {
@@ -76,7 +111,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else
                 {
-                    buffer.Append(" ."); // Lege cel
+                    buffer.Append(" .");
                 }
             }
 
@@ -86,20 +121,20 @@ public class ansiConsoleRenderer : iRenderer
         }
 
         // Onderrand
+        buffer.Append(pad);
         buffer.Append("+");
         buffer.Append(new string('-', board.Columns * 2));
         buffer.AppendLine("+   +---------------------------+");
 
         // Instructies
+        buffer.Append(pad);
         buffer.AppendLine("Controls: [A/D] Links/Rechts | [W] Roteer | [S] Val | [Spatie] Drop");
+        buffer.Append(pad);
         buffer.AppendLine("          [P] Pauze | [Q/ESC] Afsluiten");
 
         Console.Write(buffer.ToString());
     }
 
-    /*
-     * Speelt een retro 6-staps ASCII-animatie af over de volle rijen die gewist worden.
-     */
     public void AnimateLineClear(
         board board,
         List<int> fullRowIndices,
@@ -107,24 +142,39 @@ public class ansiConsoleRenderer : iRenderer
         scoreManager scoreManager,
         gameState state)
     {
-        // 6 animatieframes: () -> >< -> || -> -- -> .. -> leeg
         string[] animationFrames = ["()", "><", "||", "--", "..", "  "];
+
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
+        int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
+        string pad = new(' ', leftPadding);
 
         foreach (string frameGlyph in animationFrames)
         {
-            var buffer = new StringBuilder(2048);
+            var buffer = new StringBuilder(4096);
             buffer.Append(AnsiResetCursor);
 
+            for (int i = 0; i < topPadding; i++)
+            {
+                buffer.AppendLine();
+            }
+
+            buffer.Append(pad);
             buffer.AppendLine("+-----------------------------------------+");
-            buffer.AppendLine("|         TERMINAL TETRIS (.NET)          |");
+            buffer.Append(pad);
+            buffer.AppendLine("|         TERMINAL TETRIS                 |");
+            buffer.Append(pad);
             buffer.AppendLine("+-----------------------------------------+");
 
+            buffer.Append(pad);
             buffer.Append("+");
             buffer.Append(new string('-', board.Columns * 2));
             buffer.AppendLine("+   +---------------------------+");
 
             for (int y = 0; y < board.Rows; y++)
             {
+                buffer.Append(pad);
                 buffer.Append("|");
 
                 bool isClearingRow = fullRowIndices.Contains(y);
@@ -133,7 +183,6 @@ public class ansiConsoleRenderer : iRenderer
                 {
                     if (isClearingRow)
                     {
-                        // Fel wit geanimeerd glyph
                         buffer.Append($"\x1b[97m{frameGlyph}\x1b[0m");
                     }
                     else if (board[x, y] is { } lockedType)
@@ -151,17 +200,34 @@ public class ansiConsoleRenderer : iRenderer
                 buffer.AppendLine(" |");
             }
 
+            buffer.Append(pad);
             buffer.Append("+");
             buffer.Append(new string('-', board.Columns * 2));
             buffer.AppendLine("+   +---------------------------+");
+            buffer.Append(pad);
             buffer.AppendLine("Controls: [A/D] Links/Rechts | [W] Roteer | [S] Val | [Spatie] Drop");
+            buffer.Append(pad);
             buffer.AppendLine("          [P] Pauze | [Q/ESC] Afsluiten");
 
             Console.Write(buffer.ToString());
-
-            // 35 milliseconden wachten per frame voor een vloeiende overgang
             Thread.Sleep(35);
         }
+    }
+
+    private void CheckAndHandleWindowResize()
+    {
+        if (Console.WindowWidth != _lastWindowWidth || Console.WindowHeight != _lastWindowHeight)
+        {
+            _lastWindowWidth = Console.WindowWidth;
+            _lastWindowHeight = Console.WindowHeight;
+            Console.Clear();
+        }
+    }
+
+    private static void RenderTooSmallWarning(int currentWidth, int currentHeight)
+    {
+        Console.SetCursorPosition(0, 0);
+        Console.Write($"Terminal te klein: {currentWidth}x{currentHeight}. Minimum vereist: {LayoutWidth}x{LayoutHeight}       ");
     }
 
     private static string GetSidebarLine(int row, tetrominoFactory factory, scoreManager scoreManager, gameState state)
@@ -191,19 +257,16 @@ public class ansiConsoleRenderer : iRenderer
             _ => "UNKNOWN  "
         };
 
-    /*
-     * Geeft een gekleurd ASCII-blokje terug: []
-     */
     private static string GetPieceColoredBlock(tetrominoType type) =>
         type switch
         {
-            tetrominoType.I => "\x1b[96m[]\x1b[0m", // Cyaan
-            tetrominoType.J => "\x1b[94m[]\x1b[0m", // Blauw
-            tetrominoType.L => "\x1b[38;5;208m[]\x1b[0m", // Oranje
-            tetrominoType.O => "\x1b[93m[]\x1b[0m", // Geel
-            tetrominoType.S => "\x1b[92m[]\x1b[0m", // Groen
-            tetrominoType.T => "\x1b[95m[]\x1b[0m", // Magenta
-            tetrominoType.Z => "\x1b[91m[]\x1b[0m", // Rood
+            tetrominoType.I => "\x1b[96m[]\x1b[0m",
+            tetrominoType.J => "\x1b[94m[]\x1b[0m",
+            tetrominoType.L => "\x1b[38;5;208m[]\x1b[0m",
+            tetrominoType.O => "\x1b[93m[]\x1b[0m",
+            tetrominoType.S => "\x1b[92m[]\x1b[0m",
+            tetrominoType.T => "\x1b[95m[]\x1b[0m",
+            tetrominoType.Z => "\x1b[91m[]\x1b[0m",
             _ => "[]"
         };
 }
