@@ -66,58 +66,66 @@ public class gameEngine
         _renderer.Cleanup();
     }
 
+    /*
+     * Verwerkt ALLE direct beschikbare invoer binnen het huidige frame.
+     * Voorkomt dat toetsaanslagen zich opstapelen en vertraging veroorzaken.
+     */
     private void HandleInput()
     {
-        gameAction action = _inputHandler.PollAction();
-
-        if (action == gameAction.None)
+        // Zolang er toetsaanslagen in de buffer klaarstaan, verwerken we ze direct
+        while (true)
         {
-            return;
-        }
+            gameAction action = _inputHandler.PollAction();
 
-        if (action == gameAction.Quit)
-        {
-            _isRunning = false;
-            return;
-        }
+            if (action == gameAction.None)
+            {
+                break;
+            }
 
-        if (action == gameAction.TogglePause && _state != gameState.GameOver)
-        {
-            _state = (_state == gameState.Playing) ? gameState.Paused : gameState.Playing;
-            return;
-        }
+            if (action == gameAction.Quit)
+            {
+                _isRunning = false;
+                return;
+            }
 
-        if (_state != gameState.Playing || _currentPiece == null)
-        {
-            return;
-        }
+            if (action == gameAction.TogglePause && _state != gameState.GameOver)
+            {
+                _state = (_state == gameState.Playing) ? gameState.Paused : gameState.Playing;
+                return;
+            }
 
-        switch (action)
-        {
-            case gameAction.MoveLeft:
-                TryMovePiece(-1, 0);
-                break;
-            case gameAction.MoveRight:
-                TryMovePiece(1, 0);
-                break;
-            case gameAction.SoftDrop:
-                if (TryMovePiece(0, 1))
-                {
-                    _scoreManager.AddSoftDropPoint();
-                }
-                break;
-            case gameAction.HardDrop:
-                HardDropPiece();
-                break;
-            case gameAction.RotateClockwise:
-                TryRotatePiece(clockwise: true);
-                break;
-            case gameAction.RotateCounterClockwise:
-                TryRotatePiece(clockwise: false);
-                break;
-            case gameAction.Hold:
-                HoldPiece();
-                break;
+            if (_state != gameState.Playing || _currentPiece == null)
+            {
+                continue;
+            }
+
+            switch (action)
+            {
+                case gameAction.MoveLeft:
+                    TryMovePiece(-1, 0);
+                    break;
+                case gameAction.MoveRight:
+                    TryMovePiece(1, 0);
+                    break;
+                case gameAction.SoftDrop:
+                    if (TryMovePiece(0, 1))
+                    {
+                        _scoreManager.AddSoftDropPoint();
+                    }
+                    break;
+                case gameAction.HardDrop:
+                    HardDropPiece();
+                    break;
+                case gameAction.RotateClockwise:
+                    TryRotatePiece(clockwise: true);
+                    break;
+                case gameAction.RotateCounterClockwise:
+                    TryRotatePiece(clockwise: false);
+                    break;
+                case gameAction.Hold:
+                    HoldPiece();
+                    break;
+            }
         }
     }
 
@@ -244,12 +252,21 @@ public class gameEngine
 
         if (fullRows.Count > 0)
         {
+            // 1. Eerst de gewone rij-animatie () -> >< -> || -> -- -> ..
             _renderer.AnimateLineClear(_board, fullRows, _heldPieceType, _factory, _scoreManager, _state);
+
+            // 2. Was het een 'Tetris' (4 rijen tegelijk)? Toon de meerkleurige splash!
+            if (fullRows.Count == 4)
+            {
+                _renderer.AnimateTetrisSplash(_board, _heldPieceType, _factory, _scoreManager, _state);
+            }
+
+            // 3. Wis de rijen en registreer de score
             _board.ClearSpecificRows(fullRows);
             _scoreManager.RegisterLinesCleared(fullRows.Count);
         }
 
-        _canHold = true; // Hold weer beschikbaar voor het nieuwe stuk
+        _canHold = true;
         SpawnNextPiece();
     }
 

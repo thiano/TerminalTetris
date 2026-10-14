@@ -302,4 +302,124 @@ public class ansiConsoleRenderer : iRenderer
 
     private static string GetPieceColoredBlock(tetrominoType type) =>
         $"{GetAnsiColor(type)}[]{AnsiResetFormat}";
+    
+    public void AnimateTetrisSplash(
+        board board,
+        tetrominoType? heldPieceType,
+        tetrominoFactory factory,
+        scoreManager scoreManager,
+        gameState state)
+    {
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
+        int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
+        string pad = new(' ', leftPadding);
+
+        // De 6 officiële tetromino-kleurcodes
+        string[] tetrisColors = [
+            "\x1b[96m",      // Cyaan (I)
+            "\x1b[93m",      // Geel (O)
+            "\x1b[95m",      // Magenta (T)
+            "\x1b[92m",      // Groen (S)
+            "\x1b[38;5;208m",// Oranje (L)
+            "\x1b[91m"       // Rood (Z)
+        ];
+
+        // 8 frames lange golfcyclus (~650ms totale animatietijd)
+        for (int frame = 0; frame < 8; frame++)
+        {
+            var buffer = new StringBuilder(4096);
+            buffer.Append(AnsiResetCursor);
+
+            for (int i = 0; i < topPadding; i++)
+            {
+                buffer.AppendLine();
+            }
+
+            // Pulseer de buitenste speelveldrand mee met de explosie
+            string outerBorderCol = tetrisColors[frame % tetrisColors.Length];
+
+            buffer.Append(pad);
+            buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
+            buffer.Append(pad);
+            buffer.AppendLine($"{outerBorderCol}|{AnsiResetFormat}     \x1b[97m* * * * * *\x1b[0m     {outerBorderCol}| |{AnsiResetFormat}       STATS        {outerBorderCol}|{AnsiResetFormat}");
+            buffer.Append(pad);
+            buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
+
+            // Kleuren verschuiven per frame voor een vloeiende regenbooggolf
+            string c0 = tetrisColors[(frame + 0) % 6];
+            string c1 = tetrisColors[(frame + 1) % 6];
+            string c2 = tetrisColors[(frame + 2) % 6];
+            string c3 = tetrisColors[(frame + 3) % 6];
+            string c4 = tetrisColors[(frame + 4) % 6];
+            string c5 = tetrisColors[(frame + 5) % 6];
+
+            string bannerBorder = (frame % 2 == 0) ? "\x1b[97m" : "\x1b[93m";
+
+            for (int y = 0; y < board.Rows; y++)
+            {
+                buffer.Append(pad);
+                buffer.Append($"{outerBorderCol}|{AnsiResetFormat}");
+
+                // Grote impact-zone in het midden van het veld (rij 6 t/m 13)
+                if (y == 6)
+                {
+                    buffer.Append($"{bannerBorder}+------------------+{AnsiResetFormat}");
+                }
+                else if (y == 7)
+                {
+                    buffer.Append($"{bannerBorder}|{AnsiResetFormat}  {c0}* *{AnsiResetFormat}  \x1b[97mPERFECT\x1b[0m  {c3}* *{AnsiResetFormat} {bannerBorder}|{AnsiResetFormat}");
+                }
+                else if (y == 8)
+                {
+                    // Brede, dikke arcade TETRIS letters
+                    buffer.Append($"{bannerBorder}|{AnsiResetFormat} {c0}TT{AnsiResetFormat} {c1}EE{AnsiResetFormat} {c2}TT{AnsiResetFormat} {c3}RR{AnsiResetFormat} {c4}II{AnsiResetFormat} {c5}SS{AnsiResetFormat} {bannerBorder}|{AnsiResetFormat}");
+                }
+                else if (y == 9)
+                {
+                    buffer.Append($"{bannerBorder}|{AnsiResetFormat} {c0}##{AnsiResetFormat} {c1}##{AnsiResetFormat} {c2}##{AnsiResetFormat} {c3}##{AnsiResetFormat} {c4}##{AnsiResetFormat} {c5}##{AnsiResetFormat} {bannerBorder}|{AnsiResetFormat}");
+                }
+                else if (y == 10)
+                {
+                    buffer.Append($"{bannerBorder}|{AnsiResetFormat}   \x1b[93m>>> 800 PTS <<<\x1b[0m  {bannerBorder}|{AnsiResetFormat}");
+                }
+                else if (y == 11)
+                {
+                    buffer.Append($"{bannerBorder}+------------------+{AnsiResetFormat}");
+                }
+                else
+                {
+                    // Normale bordinhoud
+                    for (int x = 0; x < board.Columns; x++)
+                    {
+                        if (board[x, y] is { } lockedType)
+                        {
+                            buffer.Append(GetPieceColoredBlock(lockedType));
+                        }
+                        else
+                        {
+                            buffer.Append("\x1b[90m .\x1b[0m");
+                        }
+                    }
+                }
+
+                buffer.Append($"{outerBorderCol}| |{AnsiResetFormat} ");
+                buffer.Append(GetSidebarLine(y, heldPieceType, factory.PeekNextType(), scoreManager, state));
+                buffer.AppendLine($" {outerBorderCol}|{AnsiResetFormat}");
+            }
+
+            buffer.Append(pad);
+            buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
+            buffer.Append(pad);
+            buffer.AppendLine(" [A/D] Move  [W] Rotate  [S] Soft  [Space] Drop ");
+            buffer.Append(pad);
+            buffer.AppendLine(" [C]   Hold  [P] Pause   [Q] Quit                ");
+
+            Console.Write(buffer.ToString());
+
+            // 75ms per golf-frame (8 * 75ms = 600ms pure arcade hype)
+            Thread.Sleep(75);
+        }
+    }
 }
