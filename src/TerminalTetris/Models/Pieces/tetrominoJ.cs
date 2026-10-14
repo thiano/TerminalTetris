@@ -22,4 +22,11 @@ public class tetrominoJ : tetromino
     public tetrominoJ(position startPosition) : base(startPosition)
     {
     }
+    
+    public override tetromino Clone()
+    {
+        var clone = new tetrominoJ(Position);
+        while (clone.RotationState != RotationState) clone.RotateClockwise();
+        return clone;
+    }
 }

@@ -73,4 +73,9 @@ public abstract class tetromino
     {
         Position = new position(Position.X + deltaX, Position.Y + deltaY);
     }
+    
+    /*
+     * Maakt een exacte functionele kopie van het huidige stuk inclusief rotatie en positie.
+     */
+    public abstract tetromino Clone();
 }

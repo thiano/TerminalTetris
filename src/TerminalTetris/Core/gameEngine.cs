@@ -256,7 +256,7 @@ public class gameEngine
     }
 
     /*
-     * Berekent een schaduw (ghost piece) op de bodem voor het actieve stuk.
+     * Berekent een schaduw (ghost piece) op de bodem zonder de factory te belasten.
      */
     private tetromino? CalculateGhostPiece()
     {
@@ -265,20 +265,14 @@ public class gameEngine
             return null;
         }
 
-        // Maak een kopie op dezelfde positie en rotatie
-        tetromino ghost = _factory.CreateNextPiece(_currentPiece.Position);
-        while (ghost.RotationState != _currentPiece.RotationState)
-        {
-            ghost.RotateClockwise();
-        }
+        tetromino ghost = _currentPiece.Clone();
 
-        // Laat de ghost zakken tot aan de eerste botsing
         while (_board.CanPlace(ghost))
         {
             ghost.Move(0, 1);
         }
 
-        ghost.Move(0, -1); // 1 positie terugzetten boven de vloer
+        ghost.Move(0, -1);
         return ghost;
     }
 }
