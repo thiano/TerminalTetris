@@ -5,6 +5,10 @@ using TerminalTetris.Models;
 
 namespace TerminalTetris.Rendering;
 
+/*
+ * Strakke, minimalistische retro ASCII-renderer.
+ * Bevat een visuele Hold/Next previewbox en verwijdert overbodige .NET-banners.
+ */
 public class ansiConsoleRenderer : iRenderer
 {
     private const string AnsiHideCursor = "\x1b[?25l";
@@ -12,7 +16,7 @@ public class ansiConsoleRenderer : iRenderer
     private const string AnsiResetCursor = "\x1b[H";
     private const string AnsiResetFormat = "\x1b[0m";
 
-    private const int LayoutWidth = 43;
+    private const int LayoutWidth = 45;
     private const int LayoutHeight = 25;
 
     private int _lastWindowWidth;
@@ -67,18 +71,15 @@ public class ansiConsoleRenderer : iRenderer
             buffer.AppendLine();
         }
 
+        // Strakke, minimalistische titelbalk
         buffer.Append(pad);
-        buffer.AppendLine("+-----------------------------------------+");
+        buffer.AppendLine("+---------------------+ +--------------------+");
         buffer.Append(pad);
-        buffer.AppendLine("|         TERMINAL TETRIS                 |");
+        buffer.AppendLine("|     T E T R I S     | |       STATS        |");
         buffer.Append(pad);
-        buffer.AppendLine("+-----------------------------------------+");
+        buffer.AppendLine("+---------------------+ +--------------------+");
 
-        buffer.Append(pad);
-        buffer.Append("+");
-        buffer.Append(new string('-', board.Columns * 2));
-        buffer.AppendLine("+   +---------------------------+");
-
+        // Rijen opbouwen
         for (int y = 0; y < board.Rows; y++)
         {
             buffer.Append(pad);
@@ -94,7 +95,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else if (ghostPiece != null && ghostPiece.OccupiedPositions().Contains(pos))
                 {
-                    buffer.Append("\x1b[90m::\x1b[0m");
+                    buffer.Append("\x1b[90m::\x1b[0m"); // Donkere schaduw
                 }
                 else if (board[x, y] is { } lockedType)
                 {
@@ -102,25 +103,24 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else
                 {
-                    buffer.Append(" .");
+                    buffer.Append("\x1b[90m .\x1b[0m"); // Subtiele donkergrijze lege cel
                 }
             }
 
-            buffer.Append("|   | ");
-            buffer.Append(GetSidebarLine(y, heldPieceType, factory, scoreManager, state));
+            buffer.Append("| | ");
+            buffer.Append(GetSidebarLine(y, heldPieceType, factory.PeekNextType(), scoreManager, state));
             buffer.AppendLine(" |");
         }
 
+        // Onderkant van bord en sidebar
         buffer.Append(pad);
-        buffer.Append("+");
-        buffer.Append(new string('-', board.Columns * 2));
-        buffer.AppendLine("+   +---------------------------+");
+        buffer.AppendLine("+---------------------+ +--------------------+");
 
-        // Beknopte Engelse controls
+        // Subtiele helpbalk
         buffer.Append(pad);
-        buffer.AppendLine("Controls: [A/D] Move | [W] Rotate | [S] Soft | [Space] Hard");
+        buffer.AppendLine(" [A/D] Move  [W] Rotate  [S] Soft  [Space] Drop ");
         buffer.Append(pad);
-        buffer.AppendLine("          [C] Hold   | [P] Pause  | [Q/ESC] Quit");
+        buffer.AppendLine(" [C]   Hold  [P] Pause   [Q] Quit                ");
 
         Console.Write(buffer.ToString());
     }
@@ -152,16 +152,11 @@ public class ansiConsoleRenderer : iRenderer
             }
 
             buffer.Append(pad);
-            buffer.AppendLine("+-----------------------------------------+");
+            buffer.AppendLine("+---------------------+ +--------------------+");
             buffer.Append(pad);
-            buffer.AppendLine("|         TERMINAL TETRIS                 |");
+            buffer.AppendLine("|     T E T R I S     | |       STATS        |");
             buffer.Append(pad);
-            buffer.AppendLine("+-----------------------------------------+");
-
-            buffer.Append(pad);
-            buffer.Append("+");
-            buffer.Append(new string('-', board.Columns * 2));
-            buffer.AppendLine("+   +---------------------------+");
+            buffer.AppendLine("+---------------------+ +--------------------+");
 
             for (int y = 0; y < board.Rows; y++)
             {
@@ -182,23 +177,21 @@ public class ansiConsoleRenderer : iRenderer
                     }
                     else
                     {
-                        buffer.Append(" .");
+                        buffer.Append("\x1b[90m .\x1b[0m");
                     }
                 }
 
-                buffer.Append("|   | ");
-                buffer.Append(GetSidebarLine(y, heldPieceType, factory, scoreManager, state));
+                buffer.Append("| | ");
+                buffer.Append(GetSidebarLine(y, heldPieceType, factory.PeekNextType(), scoreManager, state));
                 buffer.AppendLine(" |");
             }
 
             buffer.Append(pad);
-            buffer.Append("+");
-            buffer.Append(new string('-', board.Columns * 2));
-            buffer.AppendLine("+   +---------------------------+");
+            buffer.AppendLine("+---------------------+ +--------------------+");
             buffer.Append(pad);
-            buffer.AppendLine("Controls: [A/D] Move | [W] Rotate | [S] Soft | [Space] Hard");
+            buffer.AppendLine(" [A/D] Move  [W] Rotate  [S] Soft  [Space] Drop ");
             buffer.Append(pad);
-            buffer.AppendLine("          [C] Hold   | [P] Pause  | [Q/ESC] Quit");
+            buffer.AppendLine(" [C]   Hold  [P] Pause   [Q] Quit                ");
 
             Console.Write(buffer.ToString());
             Thread.Sleep(35);
@@ -218,48 +211,95 @@ public class ansiConsoleRenderer : iRenderer
     private static void RenderTooSmallWarning(int currentWidth, int currentHeight)
     {
         Console.SetCursorPosition(0, 0);
-        Console.Write($"Terminal too small: {currentWidth}x{currentHeight}. Min required: {LayoutWidth}x{LayoutHeight}     ");
+        Console.Write($"Terminal size: {currentWidth}x{currentHeight}. Minimum required: {LayoutWidth}x{LayoutHeight}  ");
     }
 
-    private static string GetSidebarLine(int row, tetrominoType? heldPieceType, tetrominoFactory factory, scoreManager scoreManager, gameState state)
+    /*
+     * Vult de regels van het rechterpaneel aan (18 tekens breed).
+     * Bevat nu een visuele 4x2 preview voor HOLD en NEXT!
+     */
+    private static string GetSidebarLine(int row, tetrominoType? held, tetrominoType next, scoreManager score, gameState state)
     {
         string text = row switch
         {
-            1 => $"Status : {FormatGameState(state)}",
-            3 => $"Score  : {scoreManager.Score,-10}",
-            4 => $"Lines  : {scoreManager.LinesCleared,-10}",
-            5 => $"Level  : {scoreManager.Level,-10}",
-            7 => "Hold   :",
-            8 => heldPieceType.HasValue ? $"  >> [ {heldPieceType.Value} ]" : "  >> [ - ]",
-            10 => "Next   :",
-            11 => $"  >> [ {factory.PeekNextType()} ]",
-            14 => "Speed up every",
-            15 => "10 cleared lines!",
+            0 => $"SCORE  {score.Score,11}",
+            1 => $"LINES  {score.LinesCleared,11}",
+            2 => $"LEVEL  {score.Level,11}",
+            3 => "------------------",
+            4 => "HOLD:",
+            5 => $"  {GetMiniPieceRow(held, 0)}",
+            6 => $"  {GetMiniPieceRow(held, 1)}",
+            7 => "------------------",
+            8 => "NEXT:",
+            9 => $"  {GetMiniPieceRow(next, 0)}",
+            10 => $"  {GetMiniPieceRow(next, 1)}",
+            11 => "------------------",
+            13 => $"STATE  {FormatGameState(state)}",
             _ => string.Empty
         };
 
-        return text.PadRight(25);
+        return text.PadRight(18);
+    }
+
+    /*
+     * Rendert een 4x2 mini ASCII weergave van een blokje in de sidebar.
+     */
+    private static string GetMiniPieceRow(tetrominoType? type, int row)
+    {
+        if (!type.HasValue) return "        ";
+
+        string color = GetAnsiColor(type.Value);
+        string reset = AnsiResetFormat;
+
+        return (type.Value, row) switch
+        {
+            (tetrominoType.I, 0) => $"{color}[][][][]{reset}",
+            (tetrominoType.I, 1) => "        ",
+
+            (tetrominoType.O, 0) => $"  {color}[][]{reset}  ",
+            (tetrominoType.O, 1) => $"  {color}[][]{reset}  ",
+
+            (tetrominoType.T, 0) => $"  {color}[][][]{reset}",
+            (tetrominoType.T, 1) => $"    {color}[]{reset}  ",
+
+            (tetrominoType.L, 0) => $"  {color}[][][]{reset}",
+            (tetrominoType.L, 1) => $"  {color}[]{reset}    ",
+
+            (tetrominoType.J, 0) => $"  {color}[][][]{reset}",
+            (tetrominoType.J, 1) => $"      {color}[]{reset}",
+
+            (tetrominoType.S, 0) => $"    {color}[][]{reset}",
+            (tetrominoType.S, 1) => $"  {color}[][]{reset}  ",
+
+            (tetrominoType.Z, 0) => $"  {color}[][]{reset}  ",
+            (tetrominoType.Z, 1) => $"    {color}[][]{reset}",
+
+            _ => "        "
+        };
     }
 
     private static string FormatGameState(gameState state) =>
         state switch
         {
-            gameState.Playing => "\x1b[92mPLAYING\x1b[0m  ",
-            gameState.Paused => "\x1b[93mPAUSED\x1b[0m   ",
-            gameState.GameOver => "\x1b[91mGAME OVER\x1b[0m",
+            gameState.Playing => "\x1b[92mPLAY\x1b[0m     ",
+            gameState.Paused => "\x1b[93mPAUSE\x1b[0m    ",
+            gameState.GameOver => "\x1b[91mOVER\x1b[0m     ",
             _ => "UNKNOWN  "
         };
 
-    private static string GetPieceColoredBlock(tetrominoType type) =>
+    private static string GetAnsiColor(tetrominoType type) =>
         type switch
         {
-            tetrominoType.I => "\x1b[96m[]\x1b[0m",
-            tetrominoType.J => "\x1b[94m[]\x1b[0m",
-            tetrominoType.L => "\x1b[38;5;208m[]\x1b[0m",
-            tetrominoType.O => "\x1b[93m[]\x1b[0m",
-            tetrominoType.S => "\x1b[92m[]\x1b[0m",
-            tetrominoType.T => "\x1b[95m[]\x1b[0m",
-            tetrominoType.Z => "\x1b[91m[]\x1b[0m",
-            _ => "[]"
+            tetrominoType.I => "\x1b[96m",
+            tetrominoType.J => "\x1b[94m",
+            tetrominoType.L => "\x1b[38;5;208m",
+            tetrominoType.O => "\x1b[93m",
+            tetrominoType.S => "\x1b[92m",
+            tetrominoType.T => "\x1b[95m",
+            tetrominoType.Z => "\x1b[91m",
+            _ => "\x1b[0m"
         };
+
+    private static string GetPieceColoredBlock(tetrominoType type) =>
+        $"{GetAnsiColor(type)}[]{AnsiResetFormat}";
 }
