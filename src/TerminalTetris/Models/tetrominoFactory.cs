@@ -93,4 +93,20 @@ public class tetrominoFactory
             tetrominoType.Z => new tetrominoZ(spawnPosition),
             _ => throw new ArgumentOutOfRangeException(nameof(type), $"Onbekend tetromino type: {type}")
         };
+    
+    /*
+     * Maakt een specifiek stuk op basis van tetrominoType (gebruikt voor Hold swap).
+     */
+    public tetromino CreatePieceByType(tetrominoType type, position spawnPos) =>
+        type switch
+        {
+            tetrominoType.I => new Pieces.tetrominoI(spawnPos),
+            tetrominoType.J => new Pieces.tetrominoJ(spawnPos),
+            tetrominoType.L => new Pieces.tetrominoL(spawnPos),
+            tetrominoType.O => new Pieces.tetrominoO(spawnPos),
+            tetrominoType.S => new Pieces.tetrominoS(spawnPos),
+            tetrominoType.T => new Pieces.tetrominoT(spawnPos),
+            tetrominoType.Z => new Pieces.tetrominoZ(spawnPos),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), "Unknown tetromino type")
+        };
 }

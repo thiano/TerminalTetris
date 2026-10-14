@@ -6,11 +6,6 @@ using TerminalTetris.Rendering;
 
 namespace TerminalTetris.Core;
 
-/*
- * Centrale game loop engine.
- * Beheert de timing van de zwaartekracht, verwerkt spelersinvoer,
- * voert botsingsdetectie uit en stuurt de renderer aan.
- */
 public class gameEngine
 {
     private static readonly position DefaultSpawnPosition = new(3, 0);
@@ -22,6 +17,9 @@ public class gameEngine
     private readonly iRenderer _renderer;
 
     private tetromino? _currentPiece;
+    private tetrominoType? _heldPieceType;
+    private bool _canHold = true;
+
     private gameState _state;
     private bool _isRunning;
 
@@ -40,9 +38,6 @@ public class gameEngine
         _state = gameState.Playing;
     }
 
-    /*
-     * Start en onderhoudt de hoofd-gameloop totdat de speler afsluit.
-     */
     public void Run()
     {
         _renderer.Initialize();
@@ -54,30 +49,23 @@ public class gameEngine
 
         while (_isRunning)
         {
-            // 1. Input verwerken
             HandleInput();
 
-            // 2. Logica updaten (zwaartekracht)
             if (_state == gameState.Playing && gravityStopwatch.ElapsedMilliseconds >= _scoreManager.CurrentDropIntervalMs)
             {
                 StepGravity();
                 gravityStopwatch.Restart();
             }
 
-            // 3. Renderen
             tetromino? ghostPiece = CalculateGhostPiece();
-            _renderer.Render(_board, _currentPiece, ghostPiece, _factory, _scoreManager, _state);
+            _renderer.Render(_board, _currentPiece, ghostPiece, _heldPieceType, _factory, _scoreManager, _state);
 
-            // 4. Frame-limiter (~60 FPS / 16ms pauze per tick)
             Thread.Sleep(16);
         }
 
         _renderer.Cleanup();
     }
 
-    /*
-     * Leest de niet-blokkerende invoer uit en voert acties uit.
-     */
     private void HandleInput()
     {
         gameAction action = _inputHandler.PollAction();
@@ -127,13 +115,43 @@ public class gameEngine
             case gameAction.RotateCounterClockwise:
                 TryRotatePiece(clockwise: false);
                 break;
+            case gameAction.Hold:
+                HoldPiece();
+                break;
         }
     }
 
-    /*
-     * Laat het actieve stuk 1 stap zakken door de zwaartekracht.
-     * Als het niet kan zakken, wordt het vastgezet (gelockt).
-     */
+    private void HoldPiece()
+    {
+        if (!_canHold || _currentPiece == null)
+        {
+            return;
+        }
+
+        tetrominoType currentType = _currentPiece.Type;
+
+        if (_heldPieceType.HasValue)
+        {
+            // Swap held piece with current piece
+            tetrominoType toSpawn = _heldPieceType.Value;
+            _heldPieceType = currentType;
+            _currentPiece = _factory.CreatePieceByType(toSpawn, DefaultSpawnPosition);
+        }
+        else
+        {
+            // First time holding
+            _heldPieceType = currentType;
+            SpawnNextPiece();
+        }
+
+        _canHold = false; // Mag pas weer na een succesvolle lock
+
+        if (_currentPiece != null && !_board.CanPlace(_currentPiece))
+        {
+            _state = gameState.GameOver;
+        }
+    }
+
     private void StepGravity()
     {
         if (_currentPiece == null)
@@ -147,9 +165,6 @@ public class gameEngine
         }
     }
 
-    /*
-     * Plaatst het stuk direct op de bodem (Hard Drop).
-     */
     private void HardDropPiece()
     {
         if (_currentPiece == null)
@@ -165,10 +180,6 @@ public class gameEngine
         LockCurrentPieceAndContinue();
     }
 
-    /*
-     * Probeert het stuk te verplaatsen met deltaX en deltaY.
-     * Rolt de verplaatsing terug bij botsing.
-     */
     private bool TryMovePiece(int deltaX, int deltaY)
     {
         if (_currentPiece == null)
@@ -187,10 +198,6 @@ public class gameEngine
         return true;
     }
 
-    /*
-     * Probeert het stuk te roteren.
-     * Rolt de rotatie terug als er een botsing optreedt.
-     */
     private bool TryRotatePiece(bool clockwise)
     {
         if (_currentPiece == null)
@@ -209,7 +216,6 @@ public class gameEngine
 
         if (!_board.CanPlace(_currentPiece))
         {
-            // Draai terug bij botsing
             if (clockwise)
             {
                 _currentPiece.RotateCounterClockwise();
@@ -225,9 +231,6 @@ public class gameEngine
         return true;
     }
 
-    /*
-     * Zet het huidige stuk vast, wist volle rijen en spawnt het volgende stuk.
-     */
     private void LockCurrentPieceAndContinue()
     {
         if (_currentPiece == null)
@@ -237,26 +240,19 @@ public class gameEngine
 
         _board.LockPiece(_currentPiece);
 
-        // 1. Zoek welke rijen vol zijn
         List<int> fullRows = _board.GetFullRowIndices();
 
         if (fullRows.Count > 0)
         {
-            // 2. Speel de 6-staps ASCII animatie af
-            _renderer.AnimateLineClear(_board, fullRows, _factory, _scoreManager, _state);
-
-            // 3. Verwijder de rijen en pas de zwaartekracht toe op het bord
+            _renderer.AnimateLineClear(_board, fullRows, _heldPieceType, _factory, _scoreManager, _state);
             _board.ClearSpecificRows(fullRows);
             _scoreManager.RegisterLinesCleared(fullRows.Count);
         }
 
-        // 4. Spawn het volgende stuk
+        _canHold = true; // Hold weer beschikbaar voor het nieuwe stuk
         SpawnNextPiece();
     }
 
-    /*
-     * Haalt een nieuw stuk op via de factory en controleert op Game Over.
-     */
     private void SpawnNextPiece()
     {
         _currentPiece = _factory.CreateNextPiece(DefaultSpawnPosition);
@@ -267,9 +263,6 @@ public class gameEngine
         }
     }
 
-    /*
-     * Berekent een schaduw (ghost piece) op de bodem zonder de factory te belasten.
-     */
     private tetromino? CalculateGhostPiece()
     {
         if (_currentPiece == null || _state != gameState.Playing)

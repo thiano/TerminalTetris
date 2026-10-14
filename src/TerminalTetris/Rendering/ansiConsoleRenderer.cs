@@ -5,10 +5,6 @@ using TerminalTetris.Models;
 
 namespace TerminalTetris.Rendering;
 
-/*
- * Rendert het speelveld gecentreerd in elk terminalformaat.
- * Detecteert vensterwijzigingen en past dynamische padding toe.
- */
 public class ansiConsoleRenderer : iRenderer
 {
     private const string AnsiHideCursor = "\x1b[?25l";
@@ -16,8 +12,8 @@ public class ansiConsoleRenderer : iRenderer
     private const string AnsiResetCursor = "\x1b[H";
     private const string AnsiResetFormat = "\x1b[0m";
 
-    private const int LayoutWidth = 43;  // Breedte van speelveld + tussenruimte + sidebar
-    private const int LayoutHeight = 25; // Totale verticale hoogte inclusief headers en controls
+    private const int LayoutWidth = 43;
+    private const int LayoutHeight = 25;
 
     private int _lastWindowWidth;
     private int _lastWindowHeight;
@@ -44,22 +40,21 @@ public class ansiConsoleRenderer : iRenderer
         board board,
         tetromino? currentPiece,
         tetromino? ghostPiece,
+        tetrominoType? heldPieceType,
         tetrominoFactory factory,
         scoreManager scoreManager,
         gameState state)
     {
         CheckAndHandleWindowResize();
 
-        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
-        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
-
-        // Scherm te klein controle
         if (Console.WindowWidth < LayoutWidth || Console.WindowHeight < LayoutHeight)
         {
             RenderTooSmallWarning(Console.WindowWidth, Console.WindowHeight);
             return;
         }
 
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
         int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
         int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
         string pad = new(' ', leftPadding);
@@ -67,27 +62,23 @@ public class ansiConsoleRenderer : iRenderer
         var buffer = new StringBuilder(4096);
         buffer.Append(AnsiResetCursor);
 
-        // Verticale padding bovenaan
         for (int i = 0; i < topPadding; i++)
         {
             buffer.AppendLine();
         }
 
-        // Header
         buffer.Append(pad);
         buffer.AppendLine("+-----------------------------------------+");
         buffer.Append(pad);
-        buffer.AppendLine("|         TERMINAL TETRIS (.NET)          |");
+        buffer.AppendLine("|         TERMINAL TETRIS                 |");
         buffer.Append(pad);
         buffer.AppendLine("+-----------------------------------------+");
 
-        // Bovenrand
         buffer.Append(pad);
         buffer.Append("+");
         buffer.Append(new string('-', board.Columns * 2));
         buffer.AppendLine("+   +---------------------------+");
 
-        // Speelveld rijen
         for (int y = 0; y < board.Rows; y++)
         {
             buffer.Append(pad);
@@ -116,21 +107,20 @@ public class ansiConsoleRenderer : iRenderer
             }
 
             buffer.Append("|   | ");
-            buffer.Append(GetSidebarLine(y, factory, scoreManager, state));
+            buffer.Append(GetSidebarLine(y, heldPieceType, factory, scoreManager, state));
             buffer.AppendLine(" |");
         }
 
-        // Onderrand
         buffer.Append(pad);
         buffer.Append("+");
         buffer.Append(new string('-', board.Columns * 2));
         buffer.AppendLine("+   +---------------------------+");
 
-        // Instructies
+        // Beknopte Engelse controls
         buffer.Append(pad);
-        buffer.AppendLine("Controls: [A/D] Links/Rechts | [W] Roteer | [S] Val | [Spatie] Drop");
+        buffer.AppendLine("Controls: [A/D] Move | [W] Rotate | [S] Soft | [Space] Hard");
         buffer.Append(pad);
-        buffer.AppendLine("          [P] Pauze | [Q/ESC] Afsluiten");
+        buffer.AppendLine("          [C] Hold   | [P] Pause  | [Q/ESC] Quit");
 
         Console.Write(buffer.ToString());
     }
@@ -138,6 +128,7 @@ public class ansiConsoleRenderer : iRenderer
     public void AnimateLineClear(
         board board,
         List<int> fullRowIndices,
+        tetrominoType? heldPieceType,
         tetrominoFactory factory,
         scoreManager scoreManager,
         gameState state)
@@ -196,7 +187,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
 
                 buffer.Append("|   | ");
-                buffer.Append(GetSidebarLine(y, factory, scoreManager, state));
+                buffer.Append(GetSidebarLine(y, heldPieceType, factory, scoreManager, state));
                 buffer.AppendLine(" |");
             }
 
@@ -205,9 +196,9 @@ public class ansiConsoleRenderer : iRenderer
             buffer.Append(new string('-', board.Columns * 2));
             buffer.AppendLine("+   +---------------------------+");
             buffer.Append(pad);
-            buffer.AppendLine("Controls: [A/D] Links/Rechts | [W] Roteer | [S] Val | [Spatie] Drop");
+            buffer.AppendLine("Controls: [A/D] Move | [W] Rotate | [S] Soft | [Space] Hard");
             buffer.Append(pad);
-            buffer.AppendLine("          [P] Pauze | [Q/ESC] Afsluiten");
+            buffer.AppendLine("          [C] Hold   | [P] Pause  | [Q/ESC] Quit");
 
             Console.Write(buffer.ToString());
             Thread.Sleep(35);
@@ -227,21 +218,23 @@ public class ansiConsoleRenderer : iRenderer
     private static void RenderTooSmallWarning(int currentWidth, int currentHeight)
     {
         Console.SetCursorPosition(0, 0);
-        Console.Write($"Terminal te klein: {currentWidth}x{currentHeight}. Minimum vereist: {LayoutWidth}x{LayoutHeight}       ");
+        Console.Write($"Terminal too small: {currentWidth}x{currentHeight}. Min required: {LayoutWidth}x{LayoutHeight}     ");
     }
 
-    private static string GetSidebarLine(int row, tetrominoFactory factory, scoreManager scoreManager, gameState state)
+    private static string GetSidebarLine(int row, tetrominoType? heldPieceType, tetrominoFactory factory, scoreManager scoreManager, gameState state)
     {
         string text = row switch
         {
-            1 => $"Status: {FormatGameState(state)}",
-            3 => $"Score : {scoreManager.Score,-10}",
-            4 => $"Lines : {scoreManager.LinesCleared,-10}",
-            5 => $"Level : {scoreManager.Level,-10}",
-            7 => "Volgend stuk:",
-            8 => $"  >> [ {factory.PeekNextType()} ]",
-            12 => "Snelheid stijgt per",
-            13 => "10 gewiste lijnen!",
+            1 => $"Status : {FormatGameState(state)}",
+            3 => $"Score  : {scoreManager.Score,-10}",
+            4 => $"Lines  : {scoreManager.LinesCleared,-10}",
+            5 => $"Level  : {scoreManager.Level,-10}",
+            7 => "Hold   :",
+            8 => heldPieceType.HasValue ? $"  >> [ {heldPieceType.Value} ]" : "  >> [ - ]",
+            10 => "Next   :",
+            11 => $"  >> [ {factory.PeekNextType()} ]",
+            14 => "Speed up every",
+            15 => "10 cleared lines!",
             _ => string.Empty
         };
 
@@ -251,8 +244,8 @@ public class ansiConsoleRenderer : iRenderer
     private static string FormatGameState(gameState state) =>
         state switch
         {
-            gameState.Playing => "\x1b[92mSPEELT\x1b[0m   ",
-            gameState.Paused => "\x1b[93mPAUZE\x1b[0m    ",
+            gameState.Playing => "\x1b[92mPLAYING\x1b[0m  ",
+            gameState.Paused => "\x1b[93mPAUSED\x1b[0m   ",
             gameState.GameOver => "\x1b[91mGAME OVER\x1b[0m",
             _ => "UNKNOWN  "
         };

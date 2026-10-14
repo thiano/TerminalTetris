@@ -101,6 +101,7 @@ public class consoleInputHandler : iInputHandler
             ConsoleKey.Spacebar => gameAction.HardDrop,
             ConsoleKey.UpArrow or ConsoleKey.W => gameAction.RotateClockwise,
             ConsoleKey.Z => gameAction.RotateCounterClockwise,
+            ConsoleKey.C => gameAction.Hold,
             ConsoleKey.P => gameAction.TogglePause,
             ConsoleKey.Escape or ConsoleKey.Q => gameAction.Quit,
             _ => gameAction.None

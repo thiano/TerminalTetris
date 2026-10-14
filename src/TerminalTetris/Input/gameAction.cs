@@ -12,6 +12,7 @@ public enum gameAction
     HardDrop,
     RotateClockwise,
     RotateCounterClockwise,
+    Hold,
     TogglePause,
     Quit
 }

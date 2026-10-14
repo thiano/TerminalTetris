@@ -1,32 +1,27 @@
 using TerminalTetris.Core;
+using TerminalTetris.Enums;
 using TerminalTetris.Models;
 
 namespace TerminalTetris.Rendering;
 
-/*
- * Contract voor weergave-implementaties.
- * Ontkoppelt de visuele presentatie van de logische spelstatus.
- */
 public interface iRenderer
 {
-    /*
-     * Initialiseert het consolescherm (cursor verbergen, window instellen).
-     */
     void Initialize();
-
-    /*
-     * Herstelt de console-instellingen bij afsluiten van het spel.
-     */
     void Cleanup();
+    void Render(
+        board board,
+        tetromino? currentPiece,
+        tetromino? ghostPiece,
+        tetrominoType? heldPieceType,
+        tetrominoFactory factory,
+        scoreManager scoreManager,
+        gameState state);
 
-    /*
-     * Rendert de complete speltoestand: het speelveld, het actieve stuk,
-     * de ghost piece preview, score, level en het volgende stuk.
-     */
-    void Render(board board, tetromino? currentPiece, tetromino? ghostPiece, tetrominoFactory factory, scoreManager scoreManager, gameState state);
-    
-    /*
-     * Speelt een retro ASCII-verdwijnanimatie af over de opgegeven volle rijen.
-     */
-    void AnimateLineClear(board board, List<int> fullRowIndices, tetrominoFactory factory, scoreManager scoreManager, gameState state);
+    void AnimateLineClear(
+        board board,
+        List<int> fullRowIndices,
+        tetrominoType? heldPieceType,
+        tetrominoFactory factory,
+        scoreManager scoreManager,
+        gameState state);
 }
