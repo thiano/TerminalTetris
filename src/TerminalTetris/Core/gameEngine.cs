@@ -236,9 +236,21 @@ public class gameEngine
         }
 
         _board.LockPiece(_currentPiece);
-        int clearedRows = _board.ClearFullRows();
-        _scoreManager.RegisterLinesCleared(clearedRows);
 
+        // 1. Zoek welke rijen vol zijn
+        List<int> fullRows = _board.GetFullRowIndices();
+
+        if (fullRows.Count > 0)
+        {
+            // 2. Speel de 6-staps ASCII animatie af
+            _renderer.AnimateLineClear(_board, fullRows, _factory, _scoreManager, _state);
+
+            // 3. Verwijder de rijen en pas de zwaartekracht toe op het bord
+            _board.ClearSpecificRows(fullRows);
+            _scoreManager.RegisterLinesCleared(fullRows.Count);
+        }
+
+        // 4. Spawn het volgende stuk
         SpawnNextPiece();
     }
 

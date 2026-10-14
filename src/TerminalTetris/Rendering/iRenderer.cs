@@ -24,4 +24,9 @@ public interface iRenderer
      * de ghost piece preview, score, level en het volgende stuk.
      */
     void Render(board board, tetromino? currentPiece, tetromino? ghostPiece, tetrominoFactory factory, scoreManager scoreManager, gameState state);
+    
+    /*
+     * Speelt een retro ASCII-verdwijnanimatie af over de opgegeven volle rijen.
+     */
+    void AnimateLineClear(board board, List<int> fullRowIndices, tetrominoFactory factory, scoreManager scoreManager, gameState state);
 }

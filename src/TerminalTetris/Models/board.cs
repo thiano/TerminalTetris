@@ -5,7 +5,7 @@ namespace TerminalTetris.Models;
 /*
  * Beheert de toestand van het speelveld (standaard 10 breed x 20 hoog).
  * Verantwoordelijk voor botsingsdetectie, het vastzetten van stukken
- * en het detecteren/verwijderen van volle rijen.
+ * en het gecontroleerd detecteren/verwijderen van volle rijen ten behoeve van animaties.
  */
 public class board
 {
@@ -86,25 +86,34 @@ public class board
     }
 
     /*
-     * Controleert het bord op volle rijen, verwijdert ze en laat bovenliggende rijen zakken.
-     * Geeft het aantal gewiste rijen terug.
+     * Geeft een lijst terug van alle Y-rij-indices die momenteel volledig bezet zijn.
      */
-    public int ClearFullRows()
+    public List<int> GetFullRowIndices()
     {
-        int clearedCount = 0;
+        var fullRows = new List<int>();
 
-        for (int y = Rows - 1; y >= 0; y--)
+        for (int y = 0; y < Rows; y++)
         {
             if (IsRowFull(y))
             {
-                ClearRow(y);
-                DropRowsAbove(y);
-                clearedCount++;
-                y++; // Controleer dezelfde rij-index opnieuw omdat alles één stap gezakt is
+                fullRows.Add(y);
             }
         }
 
-        return clearedCount;
+        return fullRows;
+    }
+
+    /*
+     * Verwijdert een set van specifieke rijen en laat alles erboven zakken.
+     */
+    public void ClearSpecificRows(IEnumerable<int> rowsToClear)
+    {
+        // Sorteer van boven naar beneden zodat de rijen erboven netjes omlaag schuiven
+        foreach (int y in rowsToClear.OrderBy(r => r))
+        {
+            ClearRow(y);
+            DropRowsAbove(y);
+        }
     }
 
     /*

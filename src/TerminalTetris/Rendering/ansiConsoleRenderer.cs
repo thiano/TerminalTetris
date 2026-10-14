@@ -97,6 +97,73 @@ public class ansiConsoleRenderer : iRenderer
         Console.Write(buffer.ToString());
     }
 
+    /*
+     * Speelt een retro 6-staps ASCII-animatie af over de volle rijen die gewist worden.
+     */
+    public void AnimateLineClear(
+        board board,
+        List<int> fullRowIndices,
+        tetrominoFactory factory,
+        scoreManager scoreManager,
+        gameState state)
+    {
+        // 6 animatieframes: () -> >< -> || -> -- -> .. -> leeg
+        string[] animationFrames = ["()", "><", "||", "--", "..", "  "];
+
+        foreach (string frameGlyph in animationFrames)
+        {
+            var buffer = new StringBuilder(2048);
+            buffer.Append(AnsiResetCursor);
+
+            buffer.AppendLine("+-----------------------------------------+");
+            buffer.AppendLine("|         TERMINAL TETRIS (.NET)          |");
+            buffer.AppendLine("+-----------------------------------------+");
+
+            buffer.Append("+");
+            buffer.Append(new string('-', board.Columns * 2));
+            buffer.AppendLine("+   +---------------------------+");
+
+            for (int y = 0; y < board.Rows; y++)
+            {
+                buffer.Append("|");
+
+                bool isClearingRow = fullRowIndices.Contains(y);
+
+                for (int x = 0; x < board.Columns; x++)
+                {
+                    if (isClearingRow)
+                    {
+                        // Fel wit geanimeerd glyph
+                        buffer.Append($"\x1b[97m{frameGlyph}\x1b[0m");
+                    }
+                    else if (board[x, y] is { } lockedType)
+                    {
+                        buffer.Append(GetPieceColoredBlock(lockedType));
+                    }
+                    else
+                    {
+                        buffer.Append(" .");
+                    }
+                }
+
+                buffer.Append("|   | ");
+                buffer.Append(GetSidebarLine(y, factory, scoreManager, state));
+                buffer.AppendLine(" |");
+            }
+
+            buffer.Append("+");
+            buffer.Append(new string('-', board.Columns * 2));
+            buffer.AppendLine("+   +---------------------------+");
+            buffer.AppendLine("Controls: [A/D] Links/Rechts | [W] Roteer | [S] Val | [Spatie] Drop");
+            buffer.AppendLine("          [P] Pauze | [Q/ESC] Afsluiten");
+
+            Console.Write(buffer.ToString());
+
+            // 35 milliseconden wachten per frame voor een vloeiende overgang
+            Thread.Sleep(35);
+        }
+    }
+
     private static string GetSidebarLine(int row, tetrominoFactory factory, scoreManager scoreManager, gameState state)
     {
         string text = row switch
@@ -125,7 +192,7 @@ public class ansiConsoleRenderer : iRenderer
         };
 
     /*
-     * Geeft een gekleurd ASCII-blokje terug: [#] of []
+     * Geeft een gekleurd ASCII-blokje terug: []
      */
     private static string GetPieceColoredBlock(tetrominoType type) =>
         type switch
