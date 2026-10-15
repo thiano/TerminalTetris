@@ -3,6 +3,7 @@ using TerminalTetris.Enums;
 using TerminalTetris.Input;
 using TerminalTetris.Models;
 using TerminalTetris.Rendering;
+using TerminalTetris.Services;
 
 namespace TerminalTetris.Core;
 
@@ -15,6 +16,7 @@ public class gameEngine
     private readonly scoreManager _scoreManager;
     private readonly iInputHandler _inputHandler;
     private readonly iRenderer _renderer;
+    private readonly highScoreService _highScoreService;
 
     private tetromino? _currentPiece;
     private tetrominoType? _heldPieceType;
@@ -22,6 +24,10 @@ public class gameEngine
 
     private gameState _state;
     private bool _isRunning;
+
+    // Sessietijd & statistieken tracking
+    private readonly Stopwatch _sessionStopwatch = new();
+    private int _tetrisClearsCount;
 
     // Lock Delay instellingen (officiële 500ms regel met max 15 resets)
     private const int MaxLockResets = 15;
@@ -34,13 +40,15 @@ public class gameEngine
         tetrominoFactory factory,
         scoreManager scoreManager,
         iInputHandler inputHandler,
-        iRenderer renderer)
+        iRenderer renderer,
+        highScoreService highScoreService)
     {
         _board = board;
         _factory = factory;
         _scoreManager = scoreManager;
         _inputHandler = inputHandler;
         _renderer = renderer;
+        _highScoreService = highScoreService;
         _state = gameState.Playing;
     }
 
@@ -48,6 +56,7 @@ public class gameEngine
     {
         _renderer.Initialize();
         _isRunning = true;
+        _sessionStopwatch.Start();
 
         SpawnNextPiece();
 
@@ -76,7 +85,41 @@ public class gameEngine
             Thread.Sleep(16);
         }
 
+        _sessionStopwatch.Stop();
         _renderer.Cleanup();
+
+        if (_state == gameState.GameOver)
+        {
+            HandleGameOver();
+        }
+    }
+
+    private void HandleGameOver()
+    {
+        int finalScore = _scoreManager.Score;
+        int lines = _scoreManager.LinesCleared;
+        int level = _scoreManager.Level;
+
+        // 1. Sla de lifetime stats van deze sessie direct op
+        _highScoreService.RecordGameSession(lines, level, _tetrisClearsCount, _sessionStopwatch.Elapsed);
+
+        bool isHighScore = _highScoreService.IsHighScore(finalScore);
+
+        // 2. Toon het arcade scorebord
+        _renderer.RenderGameOverScreen(finalScore, isHighScore, _highScoreService.Data.HighScores);
+
+        // 3. Vraag om 3 arcade-initialen bij een top-5 notering
+        if (isHighScore)
+        {
+            string initials = _renderer.PromptPlayerInitials();
+            _highScoreService.AddHighScore(initials, finalScore, lines, level);
+
+            // Ververs het scherm met de nieuwe stand
+            _renderer.RenderGameOverScreen(finalScore, false, _highScoreService.Data.HighScores);
+        }
+
+        Console.WriteLine("\n  Druk op een toets om af te sluiten...");
+        Console.ReadKey(intercept: true);
     }
 
     private void HandleInput()
@@ -177,6 +220,7 @@ public class gameEngine
         if (_currentPiece != null && !_board.CanPlace(_currentPiece))
         {
             _state = gameState.GameOver;
+            _isRunning = false;
         }
     }
 
@@ -187,7 +231,6 @@ public class gameEngine
             return;
         }
 
-        // Als het blok nog omlaag kan, beweegt het en reset de lock delay
         if (TryMovePiece(0, 1))
         {
             if (!IsPieceOnGround())
@@ -197,7 +240,6 @@ public class gameEngine
         }
         else
         {
-            // Blok raakt de bodem: start de lock delay als die nog niet liep
             StartLockDelayIfNeeded();
         }
     }
@@ -353,6 +395,7 @@ public class gameEngine
 
             if (fullRows.Count == 4)
             {
+                _tetrisClearsCount++;
                 _renderer.AnimateTetrisSplash(_board, _heldPieceType, _factory, _scoreManager, _state);
             }
 
@@ -371,6 +414,7 @@ public class gameEngine
         if (!_board.CanPlace(_currentPiece))
         {
             _state = gameState.GameOver;
+            _isRunning = false;
         }
     }
 

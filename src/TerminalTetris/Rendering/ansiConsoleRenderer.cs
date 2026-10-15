@@ -422,4 +422,71 @@ public class ansiConsoleRenderer : iRenderer
             Thread.Sleep(75);
         }
     }
+    
+    /*
+     * Rendert het klassieke arcade Game Over scherm met optionele High Score banner.
+     */
+    public void RenderGameOverScreen(int finalScore, bool isNewHighScore, List<highScoreEntry> topScores)
+    {
+        Console.Clear();
+        Console.Write(AnsiResetCursor);
+
+        int leftPadding = Math.Max(0, (Console.WindowWidth - LayoutWidth) / 2);
+        string pad = new(' ', leftPadding);
+
+        var buffer = new StringBuilder(2048);
+        buffer.AppendLine();
+        buffer.AppendLine();
+        buffer.Append(pad).AppendLine("\x1b[91m+-------------------------------------------+\x1b[0m");
+        buffer.Append(pad).AppendLine("\x1b[91m|                GAME OVER                  |\x1b[0m");
+        buffer.Append(pad).AppendLine("\x1b[91m+-------------------------------------------+\x1b[0m");
+        buffer.AppendLine();
+
+        if (isNewHighScore)
+        {
+            buffer.Append(pad).AppendLine("\x1b[93m★ ★ ★   N E W   H I G H   S C O R E !   ★ ★ ★\x1b[0m");
+            buffer.AppendLine();
+        }
+
+        buffer.Append(pad).AppendLine($"  YOUR SCORE: \x1b[96m{finalScore}\x1b[0m");
+        buffer.AppendLine();
+        buffer.Append(pad).AppendLine("\x1b[90m----------------- TOP 5 --------------------\x1b[0m");
+
+        for (int i = 0; i < topScores.Count; i++)
+        {
+            var entry = topScores[i];
+            buffer.Append(pad).AppendLine($"  #{i + 1}  {entry.PlayerInitials,-4}  {entry.Score,7} PTS  (LVL {entry.Level}, {entry.Lines} L)");
+        }
+
+        buffer.Append(pad).AppendLine("\x1b[90m--------------------------------------------\x1b[0m");
+        buffer.AppendLine();
+
+        Console.Write(buffer.ToString());
+    }
+
+    /*
+     * Vraagt 3 arcade-initialen op met cursor zichtbaar.
+     */
+    public string PromptPlayerInitials()
+    {
+        Console.CursorVisible = true;
+        Console.Write("\x1b[?25h"); // Cursor aanzetten
+
+        int leftPadding = Math.Max(0, (Console.WindowWidth - LayoutWidth) / 2);
+        string pad = new(' ', leftPadding);
+
+        Console.Write($"{pad}\x1b[93mENTER INITIALS (3 CHARS): \x1b[0m");
+        string? input = Console.ReadLine();
+
+        Console.CursorVisible = false;
+        Console.Write(AnsiHideCursor);
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return "AAA";
+        }
+
+        string clean = input.Trim().ToUpperInvariant();
+        return clean.Length > 3 ? clean[..3] : clean.PadRight(3, ' ');
+    }
 }

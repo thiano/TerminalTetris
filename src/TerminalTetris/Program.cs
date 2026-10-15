@@ -2,6 +2,7 @@
 using TerminalTetris.Input;
 using TerminalTetris.Models;
 using TerminalTetris.Rendering;
+using TerminalTetris.Services;
 
 namespace TerminalTetris;
 
@@ -19,6 +20,7 @@ public static class program
         var scoreTracker = new scoreManager();
         var inputService = new consoleInputHandler();
         var visualRenderer = new ansiConsoleRenderer();
+        var highScores = new highScoreService();
 
         // 2. Koppel alles via de centrale GameEngine
         var engine = new gameEngine(
@@ -26,7 +28,8 @@ public static class program
             factory,
             scoreTracker,
             inputService,
-            visualRenderer);
+            visualRenderer,
+            highScores);
 
         // 3. Start het spel
         engine.Run();

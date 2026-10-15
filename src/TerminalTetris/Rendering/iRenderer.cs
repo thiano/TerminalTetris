@@ -24,16 +24,15 @@ public interface iRenderer
         tetrominoFactory factory,
         scoreManager scoreManager,
         gameState state);
-    
-    /*
-     * Speelt een flitsende arcade TETRIS splash-animatie af in het midden van het speelveld
-     * wanneer de speler 4 rijen tegelijk wist.
-     */
+
     void AnimateTetrisSplash(
         board board,
         tetrominoType? heldPieceType,
         tetrominoFactory factory,
         scoreManager scoreManager,
         gameState state);
-}
 
+    // Nieuwe methodes voor Game Over & High Score:
+    void RenderGameOverScreen(int finalScore, bool isNewHighScore, List<highScoreEntry> topScores);
+    string PromptPlayerInitials();
+}
