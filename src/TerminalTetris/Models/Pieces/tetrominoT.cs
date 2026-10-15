@@ -19,14 +19,13 @@ public class tetrominoT : tetromino
 
     public override tetrominoType Type => tetrominoType.T;
 
-    public tetrominoT(position startPosition) : base(startPosition)
+    public tetrominoT(position startPosition, int initialRotationState = 0) 
+        : base(startPosition, initialRotationState)
     {
     }
-    
+
     public override tetromino Clone()
     {
-        var clone = new tetrominoT(Position);
-        while (clone.RotationState != RotationState) clone.RotateClockwise();
-        return clone;
+        return new tetrominoT(Position, RotationState);
     }
 }

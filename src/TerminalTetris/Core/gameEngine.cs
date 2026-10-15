@@ -23,6 +23,12 @@ public class gameEngine
     private gameState _state;
     private bool _isRunning;
 
+    // Lock Delay instellingen (officiële 500ms regel met max 15 resets)
+    private const int MaxLockResets = 15;
+    private static readonly TimeSpan LockDelayDuration = TimeSpan.FromMilliseconds(500);
+    private Stopwatch? _lockStopwatch;
+    private int _lockResetCount;
+
     public gameEngine(
         board board,
         tetrominoFactory factory,
@@ -51,10 +57,17 @@ public class gameEngine
         {
             HandleInput();
 
-            if (_state == gameState.Playing && gravityStopwatch.ElapsedMilliseconds >= _scoreManager.CurrentDropIntervalMs)
+            if (_state == gameState.Playing)
             {
-                StepGravity();
-                gravityStopwatch.Restart();
+                // 1. Zwaartekracht afhandelen
+                if (gravityStopwatch.ElapsedMilliseconds >= _scoreManager.CurrentDropIntervalMs)
+                {
+                    StepGravity();
+                    gravityStopwatch.Restart();
+                }
+
+                // 2. Lock Delay timer controleren als het blok op de grond rust
+                CheckLockDelay();
             }
 
             tetromino? ghostPiece = CalculateGhostPiece();
@@ -66,13 +79,8 @@ public class gameEngine
         _renderer.Cleanup();
     }
 
-    /*
-     * Verwerkt ALLE direct beschikbare invoer binnen het huidige frame.
-     * Voorkomt dat toetsaanslagen zich opstapelen en vertraging veroorzaken.
-     */
     private void HandleInput()
     {
-        // Zolang er toetsaanslagen in de buffer klaarstaan, verwerken we ze direct
         while (true)
         {
             gameAction action = _inputHandler.PollAction();
@@ -102,26 +110,39 @@ public class gameEngine
             switch (action)
             {
                 case gameAction.MoveLeft:
-                    TryMovePiece(-1, 0);
+                    if (TryMovePiece(-1, 0))
+                    {
+                        ResetLockDelay();
+                    }
                     break;
+
                 case gameAction.MoveRight:
-                    TryMovePiece(1, 0);
+                    if (TryMovePiece(1, 0))
+                    {
+                        ResetLockDelay();
+                    }
                     break;
+
                 case gameAction.SoftDrop:
                     if (TryMovePiece(0, 1))
                     {
                         _scoreManager.AddSoftDropPoint();
+                        ResetLockDelay();
                     }
                     break;
+
                 case gameAction.HardDrop:
                     HardDropPiece();
                     break;
+
                 case gameAction.RotateClockwise:
                     TryRotatePiece(clockwise: true);
                     break;
+
                 case gameAction.RotateCounterClockwise:
                     TryRotatePiece(clockwise: false);
                     break;
+
                 case gameAction.Hold:
                     HoldPiece();
                     break;
@@ -140,19 +161,18 @@ public class gameEngine
 
         if (_heldPieceType.HasValue)
         {
-            // Swap held piece with current piece
             tetrominoType toSpawn = _heldPieceType.Value;
             _heldPieceType = currentType;
             _currentPiece = _factory.CreatePieceByType(toSpawn, DefaultSpawnPosition);
         }
         else
         {
-            // First time holding
             _heldPieceType = currentType;
             SpawnNextPiece();
         }
 
-        _canHold = false; // Mag pas weer na een succesvolle lock
+        _canHold = false;
+        CancelLockDelay();
 
         if (_currentPiece != null && !_board.CanPlace(_currentPiece))
         {
@@ -167,10 +187,70 @@ public class gameEngine
             return;
         }
 
-        if (!TryMovePiece(0, 1))
+        // Als het blok nog omlaag kan, beweegt het en reset de lock delay
+        if (TryMovePiece(0, 1))
         {
-            LockCurrentPieceAndContinue();
+            if (!IsPieceOnGround())
+            {
+                CancelLockDelay();
+            }
         }
+        else
+        {
+            // Blok raakt de bodem: start de lock delay als die nog niet liep
+            StartLockDelayIfNeeded();
+        }
+    }
+
+    private void CheckLockDelay()
+    {
+        if (_currentPiece == null)
+        {
+            return;
+        }
+
+        if (IsPieceOnGround())
+        {
+            StartLockDelayIfNeeded();
+
+            if (_lockStopwatch != null && _lockStopwatch.Elapsed >= LockDelayDuration)
+            {
+                LockCurrentPieceAndContinue();
+            }
+        }
+        else
+        {
+            CancelLockDelay();
+        }
+    }
+
+    private bool IsPieceOnGround()
+    {
+        if (_currentPiece == null) return false;
+
+        tetromino clone = _currentPiece.Clone();
+        clone.Move(0, 1);
+        return !_board.CanPlace(clone);
+    }
+
+    private void StartLockDelayIfNeeded()
+    {
+        _lockStopwatch ??= Stopwatch.StartNew();
+    }
+
+    private void ResetLockDelay()
+    {
+        if (IsPieceOnGround() && _lockResetCount < MaxLockResets)
+        {
+            _lockStopwatch?.Restart();
+            _lockResetCount++;
+        }
+    }
+
+    private void CancelLockDelay()
+    {
+        _lockStopwatch = null;
+        _lockResetCount = 0;
     }
 
     private void HardDropPiece()
@@ -206,37 +286,53 @@ public class gameEngine
         return true;
     }
 
-    private bool TryRotatePiece(bool clockwise)
+    public bool TryRotatePiece(bool clockwise = true)
     {
-        if (_currentPiece == null)
+        if (_currentPiece == null || _state != gameState.Playing)
         {
             return false;
         }
 
-        if (clockwise)
+        if (_currentPiece.Type == tetrominoType.O)
         {
-            _currentPiece.RotateClockwise();
-        }
-        else
-        {
-            _currentPiece.RotateCounterClockwise();
+            return true;
         }
 
-        if (!_board.CanPlace(_currentPiece))
+        int fromState = _currentPiece.RotationState;
+        int toState = clockwise 
+            ? (fromState + 1) % 4 
+            : (fromState + 3) % 4;
+
+        int kickIndex = wallKickData.GetKickTestIndex(fromState, toState);
+        var kickTable = _currentPiece.Type == tetrominoType.I 
+            ? wallKickData.IKicks 
+            : wallKickData.StandardKicks;
+
+        for (int test = 0; test < 5; test++)
         {
+            var (deltaX, deltaY) = kickTable[kickIndex, test];
+
+            tetromino clone = _currentPiece.Clone();
             if (clockwise)
             {
-                _currentPiece.RotateCounterClockwise();
+                clone.RotateClockwise();
             }
             else
             {
-                _currentPiece.RotateClockwise();
+                clone.RotateCounterClockwise();
             }
 
-            return false;
+            clone.Move(deltaX, deltaY);
+
+            if (_board.CanPlace(clone))
+            {
+                _currentPiece = clone;
+                ResetLockDelay();
+                return true;
+            }
         }
 
-        return true;
+        return false;
     }
 
     private void LockCurrentPieceAndContinue()
@@ -246,22 +342,20 @@ public class gameEngine
             return;
         }
 
+        CancelLockDelay();
         _board.LockPiece(_currentPiece);
 
         List<int> fullRows = _board.GetFullRowIndices();
 
         if (fullRows.Count > 0)
         {
-            // 1. Eerst de gewone rij-animatie () -> >< -> || -> -- -> ..
             _renderer.AnimateLineClear(_board, fullRows, _heldPieceType, _factory, _scoreManager, _state);
 
-            // 2. Was het een 'Tetris' (4 rijen tegelijk)? Toon de meerkleurige splash!
             if (fullRows.Count == 4)
             {
                 _renderer.AnimateTetrisSplash(_board, _heldPieceType, _factory, _scoreManager, _state);
             }
 
-            // 3. Wis de rijen en registreer de score
             _board.ClearSpecificRows(fullRows);
             _scoreManager.RegisterLinesCleared(fullRows.Count);
         }

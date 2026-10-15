@@ -61,7 +61,7 @@ public class board
      */
     public bool CanPlace(tetromino piece)
     {
-        foreach (position pos in piece.OccupiedPositions())
+        foreach (position pos in piece.GetOccupiedPositions())
         {
             if (!IsPositionValid(pos))
             {
@@ -76,7 +76,7 @@ public class board
      */
     public void LockPiece(tetromino piece)
     {
-        foreach (position pos in piece.OccupiedPositions())
+        foreach (position pos in piece.GetOccupiedPositions())
         {
             if (pos.Y >= 0 && pos.Y < Rows && pos.X >= 0 && pos.X < Columns)
             {

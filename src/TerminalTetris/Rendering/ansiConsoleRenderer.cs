@@ -75,7 +75,7 @@ public class ansiConsoleRenderer : iRenderer
         buffer.Append(pad);
         buffer.AppendLine("+---------------------+ +--------------------+");
         buffer.Append(pad);
-        buffer.AppendLine("|     T E T R I S     | |       STATS        |");
+        buffer.AppendLine("|     T E T R I S     | |        STATS       |");
         buffer.Append(pad);
         buffer.AppendLine("+---------------------+ +--------------------+");
 
@@ -89,11 +89,11 @@ public class ansiConsoleRenderer : iRenderer
             {
                 var pos = new position(x, y);
 
-                if (currentPiece != null && currentPiece.OccupiedPositions().Contains(pos))
+                if (currentPiece != null && currentPiece.GetOccupiedPositions().Contains(pos))
                 {
                     buffer.Append(GetPieceColoredBlock(currentPiece.Type));
                 }
-                else if (ghostPiece != null && ghostPiece.OccupiedPositions().Contains(pos))
+                else if (ghostPiece != null && ghostPiece.GetOccupiedPositions().Contains(pos))
                 {
                     buffer.Append("\x1b[90m::\x1b[0m"); // Donkere schaduw
                 }
@@ -154,7 +154,7 @@ public class ansiConsoleRenderer : iRenderer
             buffer.Append(pad);
             buffer.AppendLine("+---------------------+ +--------------------+");
             buffer.Append(pad);
-            buffer.AppendLine("|     T E T R I S     | |       STATS        |");
+            buffer.AppendLine("|     T E T R I S     | |        STATS       |");
             buffer.Append(pad);
             buffer.AppendLine("+---------------------+ +--------------------+");
 
@@ -302,7 +302,7 @@ public class ansiConsoleRenderer : iRenderer
 
     private static string GetPieceColoredBlock(tetrominoType type) =>
         $"{GetAnsiColor(type)}[]{AnsiResetFormat}";
-    
+
     public void AnimateTetrisSplash(
         board board,
         tetrominoType? heldPieceType,
@@ -318,15 +318,15 @@ public class ansiConsoleRenderer : iRenderer
 
         // De 6 officiële tetromino-kleurcodes
         string[] tetrisColors = [
-            "\x1b[96m",      // Cyaan (I)
-            "\x1b[93m",      // Geel (O)
-            "\x1b[95m",      // Magenta (T)
-            "\x1b[92m",      // Groen (S)
-            "\x1b[38;5;208m",// Oranje (L)
-            "\x1b[91m"       // Rood (Z)
+            "\x1b[96m",       // Cyaan (I)
+            "\x1b[93m",       // Geel (O)
+            "\x1b[95m",       // Magenta (T)
+            "\x1b[92m",       // Groen (S)
+            "\x1b[38;5;208m", // Oranje (L)
+            "\x1b[91m"        // Rood (Z)
         ];
 
-        // 8 frames lange golfcyclus (~650ms totale animatietijd)
+        // 8 frames lange golfcyclus (~600ms totale animatietijd)
         for (int frame = 0; frame < 8; frame++)
         {
             var buffer = new StringBuilder(4096);
@@ -343,7 +343,7 @@ public class ansiConsoleRenderer : iRenderer
             buffer.Append(pad);
             buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
             buffer.Append(pad);
-            buffer.AppendLine($"{outerBorderCol}|{AnsiResetFormat}     \x1b[97m* * * * * *\x1b[0m     {outerBorderCol}| |{AnsiResetFormat}       STATS        {outerBorderCol}|{AnsiResetFormat}");
+            buffer.AppendLine($"{outerBorderCol}|{AnsiResetFormat}     \x1b[97m* * * * * *\x1b[0m     {outerBorderCol}| |{AnsiResetFormat}        STATS        {outerBorderCol}|{AnsiResetFormat}");
             buffer.Append(pad);
             buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
 
@@ -362,7 +362,7 @@ public class ansiConsoleRenderer : iRenderer
                 buffer.Append(pad);
                 buffer.Append($"{outerBorderCol}|{AnsiResetFormat}");
 
-                // Grote impact-zone in het midden van het veld (rij 6 t/m 13)
+                // Grote impact-zone in het midden van het veld (rij 6 t/m 11)
                 if (y == 6)
                 {
                     buffer.Append($"{bannerBorder}+------------------+{AnsiResetFormat}");
