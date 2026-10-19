@@ -3,61 +3,53 @@ using TerminalTetris.Enums;
 namespace TerminalTetris.Models;
 
 /*
- * Beheert de toestand van het speelveld (standaard 10 breed x 20 hoog).
- * Verantwoordelijk voor botsingsdetectie, het vastzetten van stukken
- * en het gecontroleerd detecteren/verwijderen van volle rijen ten behoeve van animaties.
+ * Manages the playfield grid state (standard 10 columns by 20 rows).
+ * Handles collision detection, piece placement locking, and full line clearing.
  */
-public class board
+public class board(int columns = board.DefaultColumns, int rows = board.DefaultRows)
 {
     public const int DefaultRows = 20;
     public const int DefaultColumns = 10;
 
-    private readonly tetrominoType?[,] _grid;
+    private readonly tetrominoType?[,] _grid = new tetrominoType?[columns, rows];
 
-    public int Rows { get; }
-    public int Columns { get; }
+    public int Rows { get; } = rows;
+    public int Columns { get; } = columns;
 
     /*
-     * Biedt read-only indexertoegang tot een cel op positie (x, y).
+     * Provides read-only indexer access to the cell at coordinate (x, y).
      */
     public tetrominoType? this[int x, int y] => _grid[x, y];
 
-    public board(int columns = DefaultColumns, int rows = DefaultRows)
-    {
-        Columns = columns;
-        Rows = rows;
-        _grid = new tetrominoType?[columns, rows];
-    }
-
     /*
-     * Controleert of een positie binnen de speelveldgrenzen valt en vrij is.
+     * Validates whether a coordinate is within boundary constraints and unoccupied.
      */
     public bool IsPositionValid(position pos)
     {
-        // Horizontaal buiten het veld
+        // Horizontal bounds check
         if (pos.X < 0 || pos.X >= Columns)
         {
             return false;
         }
 
-        // Onder de bodem
+        // Floor boundary check
         if (pos.Y >= Rows)
         {
             return false;
         }
 
-        // Boven het zichtbare veld (spawnen is toegestaan)
+        // Sky/spawn area above visible playfield is considered valid
         if (pos.Y < 0)
         {
             return true;
         }
 
-        // Controleer of de cel al bezet is
+        // Occupancy check for locked cells
         return _grid[pos.X, pos.Y] == null;
     }
 
     /*
-     * Controleert of alle 4 de blokken van een tetromino op geldige cellen staan.
+     * Verifies that all 4 occupied cells of a tetromino can be positioned legally.
      */
     public bool CanPlace(tetromino piece)
     {
@@ -68,11 +60,12 @@ public class board
                 return false;
             }
         }
+
         return true;
     }
 
     /*
-     * Zet een tetromino definitief vast op het speelveld.
+     * Permanently commits piece blocks into the grid matrix.
      */
     public void LockPiece(tetromino piece)
     {
@@ -86,7 +79,7 @@ public class board
     }
 
     /*
-     * Geeft een lijst terug van alle Y-rij-indices die momenteel volledig bezet zijn.
+     * Returns a list of all Y-row indices that are currently completely filled.
      */
     public List<int> GetFullRowIndices()
     {
@@ -104,12 +97,12 @@ public class board
     }
 
     /*
-     * Verwijdert een set van specifieke rijen en laat alles erboven zakken.
+     * Clears specific rows and collapses higher rows downward.
+     * Iterates bottom-up (descending) to prevent row index shifts during clearance.
      */
     public void ClearSpecificRows(IEnumerable<int> rowsToClear)
     {
-        // Sorteer van boven naar beneden zodat de rijen erboven netjes omlaag schuiven
-        foreach (int y in rowsToClear.OrderBy(r => r))
+        foreach (int y in rowsToClear.OrderByDescending(r => r))
         {
             ClearRow(y);
             DropRowsAbove(y);
@@ -117,7 +110,7 @@ public class board
     }
 
     /*
-     * Controleert of alle cellen in een specifieke rij bezet zijn.
+     * Checks if all cells across a horizontal row contain locked blocks.
      */
     private bool IsRowFull(int y)
     {
@@ -128,11 +121,12 @@ public class board
                 return false;
             }
         }
+
         return true;
     }
 
     /*
-     * Maakt een volledige rij leeg.
+     * Clears all cells on a given row coordinate.
      */
     private void ClearRow(int y)
     {
@@ -143,7 +137,7 @@ public class board
     }
 
     /*
-     * Laat alle rijen boven een verwijderde rij exact één stap omlaag zakken.
+     * Shifts all rows above the cleared row downward by one cell.
      */
     private void DropRowsAbove(int startY)
     {
@@ -155,7 +149,7 @@ public class board
             }
         }
 
-        // Bovenste rij (y = 0) leegmaken
+        // Clear top-most row
         for (int x = 0; x < Columns; x++)
         {
             _grid[x, 0] = null;

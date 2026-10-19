@@ -7,11 +7,14 @@ using TerminalTetris.Services;
 namespace TerminalTetris;
 
 /*
- * Entry point van de TerminalTetris applicatie.
- * Ondersteunt directe CLI-vlaggen (--scores, --help) en start anders direct de gameplay.
+ * Entry point for the TerminalTetris application.
+ * Evaluates CLI arguments (--scores, --help) or launches interactive gameplay.
  */
-public static class program
+public static class Program
 {
+    /*
+     * Application entry routine.
+     */
     public static void Main(string[] args)
     {
         var highScores = new highScoreService();
@@ -32,12 +35,12 @@ public static class program
                     return;
 
                 default:
-                    Console.WriteLine($"Onbekend argument: '{args[0]}'. Gebruik --help voor opties.");
+                    Console.WriteLine($"Unknown option: '{args[0]}'. Use --help for usage information.");
                     return;
             }
         }
 
-        // Geen argumenten: start direct de game
+        // Initialize core gameplay components
         var gameBoard = new board();
         var factory = new tetrominoFactory();
         var scoreTracker = new scoreManager();
@@ -55,6 +58,9 @@ public static class program
         engine.Run();
     }
 
+    /*
+     * Prints local high scores and lifetime statistics to standard output.
+     */
     private static void PrintLeaderboardCli(highScoreService service)
     {
         Console.WriteLine("\x1b[96m=== TERMINALTETRIS LEADERBOARD ===\x1b[0m\n");
@@ -62,17 +68,17 @@ public static class program
         var scores = service.Data.HighScores;
         if (scores.Count == 0)
         {
-            Console.WriteLine("Nog geen scores geregistreerd.");
+            Console.WriteLine("No records registered yet.");
         }
         else
         {
-            Console.WriteLine(" #   INIT   SCORE      LVL   LINES   DATUM");
+            Console.WriteLine(" #   INIT   SCORE      LVL   LINES   DATE");
             Console.WriteLine("--------------------------------------------------");
             for (int i = 0; i < scores.Count; i++)
             {
                 var entry = scores[i];
                 string dateStr = entry.Date.ToLocalTime().ToString("yyyy-MM-dd");
-                Console.WriteLine($" {i + 1,-3} {entry.PlayerInitials,-6} {entry.Score,7}    {entry.Level,-5} {entry.Lines,-7} {dateStr}");
+                Console.WriteLine($" {i + 1,-3} {entry.PlayerInitials,-6} {entry.Score,7}     {entry.Level,-5} {entry.Lines,-7} {dateStr}");
             }
         }
 
@@ -80,30 +86,34 @@ public static class program
         int hours = stats.TotalSecondsPlayed / 3600;
         int minutes = (stats.TotalSecondsPlayed % 3600) / 60;
         int seconds = stats.TotalSecondsPlayed % 60;
-        string timeFormatted = hours > 0 ? $"{hours}u {minutes}m {seconds}s" : $"{minutes}m {seconds}s";
+        string timeFormatted = hours > 0 ? $"{hours}h {minutes}m {seconds}s" : $"{minutes}m {seconds}s";
 
-        Console.WriteLine("\n\x1b[93m--- STATISTIEKEN ---\x1b[0m");
-        Console.WriteLine($" Totaal gespeeld:     {stats.GamesPlayed} games");
-        Console.WriteLine($" Totale speeltijd:    {timeFormatted}");
-        Console.WriteLine($" Totaal gewiste rijen:{stats.TotalLinesCleared}");
-        Console.WriteLine($" Aantal 'TETRIS' (4L):{stats.TotalTetrisClears}");
-        Console.WriteLine($" Hoogste level ooit:  Lvl {stats.MaxLevelReached}\n");
+        Console.WriteLine("\n\x1b[93m--- STATISTICS ---\x1b[0m");
+        Console.WriteLine($" Games Played:        {stats.GamesPlayed}");
+        Console.WriteLine($" Total Play Time:     {timeFormatted}");
+        Console.WriteLine($" Total Lines Cleared: {stats.TotalLinesCleared}");
+        Console.WriteLine($" Tetris Clears (4L):  {stats.TotalTetrisClears}");
+        Console.WriteLine($" Max Level Reached:   Lvl {stats.MaxLevelReached}\n");
     }
 
+    /*
+     * Prints CLI command syntax and in-game key bindings to standard output.
+     */
     private static void PrintHelpCli()
     {
-        Console.WriteLine("\x1b[96mTerminalTetris\x1b[0m - Retro Tetris in je terminal\n");
-        Console.WriteLine("Gebruik:");
-        Console.WriteLine("  TerminalTetris            Start het spel direct");
-        Console.WriteLine("  TerminalTetris -s, --scores  Toon de lokale top 5 en stats");
-        Console.WriteLine("  TerminalTetris -h, --help    Toon dit helpscherm\n");
-        Console.WriteLine("Controls tijdens spel:");
-        Console.WriteLine("  A / D   : Links / Rechts bewegen");
-        Console.WriteLine("  W       : Roteren (met SRS wall kicks)");
-        Console.WriteLine("  S       : Soft drop");
-        Console.WriteLine("  Spatie  : Hard drop");
-        Console.WriteLine("  C       : Hold piece");
-        Console.WriteLine("  P       : Pauzeren");
-        Console.WriteLine("  Q       : Afsluiten\n");
+        Console.WriteLine("\x1b[96mTerminalTetris\x1b[0m - Retro Tetris for your terminal\n");
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  TerminalTetris            Launch interactive game");
+        Console.WriteLine("  TerminalTetris -s, --scores  Display local leaderboard and stats");
+        Console.WriteLine("  TerminalTetris -h, --help    Show this help message\n");
+        Console.WriteLine("Controls:");
+        Console.WriteLine("  A / D   : Move Left / Right");
+        Console.WriteLine("  W       : Rotate Clockwise (SRS wall kicks)");
+        Console.WriteLine("  Z       : Rotate Counter-Clockwise");
+        Console.WriteLine("  S       : Soft Drop");
+        Console.WriteLine("  Space   : Hard Drop");
+        Console.WriteLine("  C       : Hold Piece");
+        Console.WriteLine("  P       : Toggle Pause");
+        Console.WriteLine("  Q / Esc : Quit Game\n");
     }
 }

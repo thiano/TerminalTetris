@@ -1,14 +1,14 @@
 namespace TerminalTetris.Input;
 
 /*
- * Interface voor het niet-blokkerend afhandelen van spelerinvoer
+ * Contract for non-blocking player input evaluation.
+ * Decouples input device implementations from the simulation loop.
  */
 public interface iInputHandler
 {
     /*
-     * Pollt de invoerbuffer en retourneert de eerstvolgende geregistreerde gameAction
-     * Als er geen toets ingedrukt is, levert dit gemeAction.None op zonder te blokkeren
+     * Polls the pending input stream and returns the next mapped gameAction.
+     * Returns gameAction.None immediately if no keystroke is pending.
      */
     gameAction PollAction();
-
 }

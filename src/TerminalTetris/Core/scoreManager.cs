@@ -1,8 +1,8 @@
 namespace TerminalTetris.Core;
 
 /*
- * Beheert scores, combo-vermenigvuldigers, levels en de dynamische valsnelheid.
- * Gebaseerd op het klassieke Tetris-puntensysteem.
+ * Manages scoring, level progression, and dynamic gravity drop intervals.
+ * Implements standard classic Tetris point multipliers and level scaling.
  */
 public class scoreManager
 {
@@ -11,25 +11,24 @@ public class scoreManager
     private const int MinDropIntervalMs = 100;
     private const int SpeedDecrementPerLevelMs = 60;
 
+    // Current player score tally
     public int Score { get; private set; }
+
+    // Total lines cleared during the current run
     public int LinesCleared { get; private set; }
+
+    // Derived level index based on lines cleared
     public int Level => LinesCleared / LinesPerLevel;
 
     /*
-     * Geeft het actuele tijdsinterval in milliseconden tussen twee zwaartekrachtstappen.
-     * Naarmate het level stijgt, daalt dit interval lineair tot een vast minimum.
+     * Returns the active gravity interval in milliseconds.
+     * Decreases linearly with each level until reaching the minimum floor.
      */
-    public int CurrentDropIntervalMs
-    {
-        get
-        {
-            int calculatedInterval = BaseDropIntervalMs - (Level * SpeedDecrementPerLevelMs);
-            return Math.Max(MinDropIntervalMs, calculatedInterval);
-        }
-    }
+    public int CurrentDropIntervalMs =>
+        Math.Max(MinDropIntervalMs, BaseDropIntervalMs - (Level * SpeedDecrementPerLevelMs));
 
     /*
-     * Verwerkt het aantal gelijktijdig gewiste lijnen en kent punten toe.
+     * Evaluates simultaneously cleared lines and adds weighted score values.
      */
     public void RegisterLinesCleared(int lineCount)
     {
@@ -41,10 +40,10 @@ public class scoreManager
         int currentLevelMultiplier = Level + 1;
         int pointsAwarded = lineCount switch
         {
-            1 => 40 * currentLevelMultiplier,    // Single
-            2 => 100 * currentLevelMultiplier,   // Double
-            3 => 300 * currentLevelMultiplier,   // Triple
-            4 => 1200 * currentLevelMultiplier,  // Tetris
+            1 => 40 * currentLevelMultiplier,    // Single clear
+            2 => 100 * currentLevelMultiplier,   // Double clear
+            3 => 300 * currentLevelMultiplier,   // Triple clear
+            4 => 1200 * currentLevelMultiplier,  // Tetris (quad clear)
             _ => 0
         };
 
@@ -53,7 +52,7 @@ public class scoreManager
     }
 
     /*
-     * Voegt optioneel punten toe voor soft-drops (manueel omlaag versnellen).
+     * Awards points for manual soft drops (1 point per downward cell moved).
      */
     public void AddSoftDropPoint()
     {
@@ -61,7 +60,18 @@ public class scoreManager
     }
 
     /*
-     * Reset de score, lijnen en level voor een nieuwe speelsessie.
+     * Awards points for instantaneous hard drops (2 points per cell dropped).
+     */
+    public void AddHardDropPoints(int dropDistance)
+    {
+        if (dropDistance > 0)
+        {
+            Score += dropDistance * 2;
+        }
+    }
+
+    /*
+     * Resets score, line tally, and level progress for a fresh game session.
      */
     public void Reset()
     {

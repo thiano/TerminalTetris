@@ -7,51 +7,50 @@ using TerminalTetris.Services;
 
 namespace TerminalTetris.Core;
 
-public class gameEngine
+/*
+ * Core game loop and state coordinator.
+ * Manages player input, gravity tick rate, SRS rotation logic, and lock delay mechanics.
+ */
+public class gameEngine(
+    board board,
+    tetrominoFactory factory,
+    scoreManager scoreManager,
+    iInputHandler inputHandler,
+    iRenderer renderer,
+    highScoreService highScoreService)
 {
     private static readonly position DefaultSpawnPosition = new(3, 0);
 
-    private readonly board _board;
-    private readonly tetrominoFactory _factory;
-    private readonly scoreManager _scoreManager;
-    private readonly iInputHandler _inputHandler;
-    private readonly iRenderer _renderer;
-    private readonly highScoreService _highScoreService;
+    // Gameplay sub-services and state models
+    private readonly board _board = board;
+    private readonly tetrominoFactory _factory = factory;
+    private readonly scoreManager _scoreManager = scoreManager;
+    private readonly iInputHandler _inputHandler = inputHandler;
+    private readonly iRenderer _renderer = renderer;
+    private readonly highScoreService _highScoreService = highScoreService;
 
+    // Active piece and hold tracking
     private tetromino? _currentPiece;
     private tetrominoType? _heldPieceType;
     private bool _canHold = true;
 
-    private gameState _state;
+    // Engine loop lifecycle
+    private gameState _state = gameState.Playing;
     private bool _isRunning;
 
-    // Sessietijd & statistieken tracking
+    // Session duration and Tetris (4-line clear) tracking
     private readonly Stopwatch _sessionStopwatch = new();
     private int _tetrisClearsCount;
 
-    // Lock Delay instellingen (officiële 500ms regel met max 15 resets)
+    // Guideline lock delay settings (500ms duration, max 15 movement resets)
     private const int MaxLockResets = 15;
     private static readonly TimeSpan LockDelayDuration = TimeSpan.FromMilliseconds(500);
     private Stopwatch? _lockStopwatch;
     private int _lockResetCount;
 
-    public gameEngine(
-        board board,
-        tetrominoFactory factory,
-        scoreManager scoreManager,
-        iInputHandler inputHandler,
-        iRenderer renderer,
-        highScoreService highScoreService)
-    {
-        _board = board;
-        _factory = factory;
-        _scoreManager = scoreManager;
-        _inputHandler = inputHandler;
-        _renderer = renderer;
-        _highScoreService = highScoreService;
-        _state = gameState.Playing;
-    }
-
+    /*
+     * Starts the main game loop, timers, and initial piece spawn.
+     */
     public void Run()
     {
         _renderer.Initialize();
@@ -68,20 +67,21 @@ public class gameEngine
 
             if (_state == gameState.Playing)
             {
-                // 1. Zwaartekracht afhandelen
+                // 1. Process vertical gravity step
                 if (gravityStopwatch.ElapsedMilliseconds >= _scoreManager.CurrentDropIntervalMs)
                 {
                     StepGravity();
                     gravityStopwatch.Restart();
                 }
 
-                // 2. Lock Delay timer controleren als het blok op de grond rust
+                // 2. Evaluate piece ground contact and lock delay timeout
                 CheckLockDelay();
             }
 
             tetromino? ghostPiece = CalculateGhostPiece();
             _renderer.Render(_board, _currentPiece, ghostPiece, _heldPieceType, _factory, _scoreManager, _state);
 
+            // Target frame cap (~60 FPS)
             Thread.Sleep(16);
         }
 
@@ -94,6 +94,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Executes the Game Over sequence: curtain animation, session stats, and high score input.
+     */
     private void HandleGameOver()
     {
         _renderer.AnimateGameOverCurtain(_board, _heldPieceType, _factory, _scoreManager, _state);
@@ -103,12 +106,15 @@ public class gameEngine
         int lines = _scoreManager.LinesCleared;
         int level = _scoreManager.Level;
 
+        // Persist session metrics to local high score storage
         _highScoreService.RecordGameSession(lines, level, _tetrisClearsCount, _sessionStopwatch.Elapsed);
 
         bool isHighScore = _highScoreService.IsHighScore(finalScore);
 
+        // Display leaderboard overlay
         _renderer.RenderGameOverScreen(finalScore, isHighScore, _highScoreService.Data.HighScores);
 
+        // Request initials if player achieved a top 5 rank
         if (isHighScore)
         {
             string initials = _renderer.PromptPlayerInitials();
@@ -116,10 +122,13 @@ public class gameEngine
             _renderer.RenderGameOverScreen(finalScore, false, _highScoreService.Data.HighScores);
         }
 
-        // Wacht rustig op de toetsaanslag zonder losse ongecentreerde tekst
+        // Wait for player acknowledgement before terminal exit
         Console.ReadKey(intercept: true);
     }
 
+    /*
+     * Polls and processes all pending keyboard input events from the input queue.
+     */
     private void HandleInput()
     {
         while (true)
@@ -191,6 +200,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Swaps the active piece into the hold slot or spawns next piece on initial hold.
+     */
     private void HoldPiece()
     {
         if (!_canHold || _currentPiece == null)
@@ -215,6 +227,7 @@ public class gameEngine
         _canHold = false;
         CancelLockDelay();
 
+        // Check if held piece spawns directly into occupied blocks (top out)
         if (_currentPiece != null && !_board.CanPlace(_currentPiece))
         {
             _state = gameState.GameOver;
@@ -222,6 +235,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Advances piece downwards by one cell due to automatic gravity.
+     */
     private void StepGravity()
     {
         if (_currentPiece == null)
@@ -242,6 +258,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Checks if current piece rests on surface and locks it once duration expires.
+     */
     private void CheckLockDelay()
     {
         if (_currentPiece == null)
@@ -264,6 +283,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Checks whether piece has ground or locked tile contact directly underneath.
+     */
     private bool IsPieceOnGround()
     {
         if (_currentPiece == null) return false;
@@ -278,6 +300,9 @@ public class gameEngine
         _lockStopwatch ??= Stopwatch.StartNew();
     }
 
+    /*
+     * Resets the lock delay stopwatch upon valid horizontal movement or rotation.
+     */
     private void ResetLockDelay()
     {
         if (IsPieceOnGround() && _lockResetCount < MaxLockResets)
@@ -293,6 +318,9 @@ public class gameEngine
         _lockResetCount = 0;
     }
 
+    /*
+     * Drops the piece instantly to the bottom, adds drop points, and locks placement.
+     */
     private void HardDropPiece()
     {
         if (_currentPiece == null)
@@ -308,6 +336,9 @@ public class gameEngine
         LockCurrentPieceAndContinue();
     }
 
+    /*
+     * Attempts to translate active piece position by delta coordinates.
+     */
     private bool TryMovePiece(int deltaX, int deltaY)
     {
         if (_currentPiece == null)
@@ -326,6 +357,9 @@ public class gameEngine
         return true;
     }
 
+    /*
+     * Executes SRS (Super Rotation System) tests for clockwise or counter-clockwise rotation.
+     */
     public bool TryRotatePiece(bool clockwise = true)
     {
         if (_currentPiece == null || _state != gameState.Playing)
@@ -333,6 +367,7 @@ public class gameEngine
             return false;
         }
 
+        // O-piece possesses 4-way radial symmetry, rotation tests can be skipped
         if (_currentPiece.Type == tetrominoType.O)
         {
             return true;
@@ -348,6 +383,7 @@ public class gameEngine
             ? wallKickData.IKicks 
             : wallKickData.StandardKicks;
 
+        // Perform the 5 standard SRS kick tests
         for (int test = 0; test < 5; test++)
         {
             var (deltaX, deltaY) = kickTable[kickIndex, test];
@@ -375,6 +411,9 @@ public class gameEngine
         return false;
     }
 
+    /*
+     * Locks piece into grid matrix, evaluates completed rows, triggers clear effects, and spawns next piece.
+     */
     private void LockCurrentPieceAndContinue()
     {
         if (_currentPiece == null)
@@ -405,6 +444,9 @@ public class gameEngine
         SpawnNextPiece();
     }
 
+    /*
+     * Pulls the next tetromino from the random generator and checks for spawn collisions.
+     */
     private void SpawnNextPiece()
     {
         _currentPiece = _factory.CreateNextPiece(DefaultSpawnPosition);
@@ -416,6 +458,9 @@ public class gameEngine
         }
     }
 
+    /*
+     * Calculates the projected landing location (ghost piece) of the currently falling piece.
+     */
     private tetromino? CalculateGhostPiece()
     {
         if (_currentPiece == null || _state != gameState.Playing)
