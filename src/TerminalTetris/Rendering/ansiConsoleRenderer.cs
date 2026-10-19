@@ -5,10 +5,6 @@ using TerminalTetris.Models;
 
 namespace TerminalTetris.Rendering;
 
-/*
- * Strakke, minimalistische retro ASCII-renderer.
- * Bevat een visuele Hold/Next previewbox en verwijdert overbodige .NET-banners.
- */
 public class ansiConsoleRenderer : iRenderer
 {
     private const string AnsiHideCursor = "\x1b[?25l";
@@ -71,7 +67,6 @@ public class ansiConsoleRenderer : iRenderer
             buffer.AppendLine();
         }
 
-        // Strakke, minimalistische titelbalk
         buffer.Append(pad);
         buffer.AppendLine("+---------------------+ +--------------------+");
         buffer.Append(pad);
@@ -79,7 +74,6 @@ public class ansiConsoleRenderer : iRenderer
         buffer.Append(pad);
         buffer.AppendLine("+---------------------+ +--------------------+");
 
-        // Rijen opbouwen
         for (int y = 0; y < board.Rows; y++)
         {
             buffer.Append(pad);
@@ -95,7 +89,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else if (ghostPiece != null && ghostPiece.GetOccupiedPositions().Contains(pos))
                 {
-                    buffer.Append("\x1b[90m::\x1b[0m"); // Donkere schaduw
+                    buffer.Append("\x1b[90m::\x1b[0m");
                 }
                 else if (board[x, y] is { } lockedType)
                 {
@@ -103,7 +97,7 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else
                 {
-                    buffer.Append("\x1b[90m .\x1b[0m"); // Subtiele donkergrijze lege cel
+                    buffer.Append("\x1b[90m .\x1b[0m");
                 }
             }
 
@@ -112,11 +106,8 @@ public class ansiConsoleRenderer : iRenderer
             buffer.AppendLine(" |");
         }
 
-        // Onderkant van bord en sidebar
         buffer.Append(pad);
         buffer.AppendLine("+---------------------+ +--------------------+");
-
-        // Subtiele helpbalk
         buffer.Append(pad);
         buffer.AppendLine(" [A/D] Move  [W] Rotate  [S] Soft  [Space] Drop ");
         buffer.Append(pad);
@@ -214,10 +205,6 @@ public class ansiConsoleRenderer : iRenderer
         Console.Write($"Terminal size: {currentWidth}x{currentHeight}. Minimum required: {LayoutWidth}x{LayoutHeight}  ");
     }
 
-    /*
-     * Vult de regels van het rechterpaneel aan (18 tekens breed).
-     * Bevat nu een visuele 4x2 preview voor HOLD en NEXT!
-     */
     private static string GetSidebarLine(int row, tetrominoType? held, tetrominoType next, scoreManager score, gameState state)
     {
         string text = row switch
@@ -241,9 +228,6 @@ public class ansiConsoleRenderer : iRenderer
         return text.PadRight(18);
     }
 
-    /*
-     * Rendert een 4x2 mini ASCII weergave van een blokje in de sidebar.
-     */
     private static string GetMiniPieceRow(tetrominoType? type, int row)
     {
         if (!type.HasValue) return "        ";
@@ -316,17 +300,15 @@ public class ansiConsoleRenderer : iRenderer
         int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
         string pad = new(' ', leftPadding);
 
-        // De 6 officiële tetromino-kleurcodes
         string[] tetrisColors = [
-            "\x1b[96m",       // Cyaan (I)
-            "\x1b[93m",       // Geel (O)
-            "\x1b[95m",       // Magenta (T)
-            "\x1b[92m",       // Groen (S)
-            "\x1b[38;5;208m", // Oranje (L)
-            "\x1b[91m"        // Rood (Z)
+            "\x1b[96m",
+            "\x1b[93m",
+            "\x1b[95m",
+            "\x1b[92m",
+            "\x1b[38;5;208m",
+            "\x1b[91m"
         ];
 
-        // 8 frames lange golfcyclus (~600ms totale animatietijd)
         for (int frame = 0; frame < 8; frame++)
         {
             var buffer = new StringBuilder(4096);
@@ -337,7 +319,6 @@ public class ansiConsoleRenderer : iRenderer
                 buffer.AppendLine();
             }
 
-            // Pulseer de buitenste speelveldrand mee met de explosie
             string outerBorderCol = tetrisColors[frame % tetrisColors.Length];
 
             buffer.Append(pad);
@@ -347,7 +328,6 @@ public class ansiConsoleRenderer : iRenderer
             buffer.Append(pad);
             buffer.AppendLine($"{outerBorderCol}+---------------------+ +--------------------+{AnsiResetFormat}");
 
-            // Kleuren verschuiven per frame voor een vloeiende regenbooggolf
             string c0 = tetrisColors[(frame + 0) % 6];
             string c1 = tetrisColors[(frame + 1) % 6];
             string c2 = tetrisColors[(frame + 2) % 6];
@@ -362,7 +342,6 @@ public class ansiConsoleRenderer : iRenderer
                 buffer.Append(pad);
                 buffer.Append($"{outerBorderCol}|{AnsiResetFormat}");
 
-                // Grote impact-zone in het midden van het veld (rij 6 t/m 11)
                 if (y == 6)
                 {
                     buffer.Append($"{bannerBorder}+------------------+{AnsiResetFormat}");
@@ -373,7 +352,6 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else if (y == 8)
                 {
-                    // Brede, dikke arcade TETRIS letters
                     buffer.Append($"{bannerBorder}|{AnsiResetFormat} {c0}TT{AnsiResetFormat} {c1}EE{AnsiResetFormat} {c2}TT{AnsiResetFormat} {c3}RR{AnsiResetFormat} {c4}II{AnsiResetFormat} {c5}SS{AnsiResetFormat} {bannerBorder}|{AnsiResetFormat}");
                 }
                 else if (y == 9)
@@ -390,7 +368,6 @@ public class ansiConsoleRenderer : iRenderer
                 }
                 else
                 {
-                    // Normale bordinhoud
                     for (int x = 0; x < board.Columns; x++)
                     {
                         if (board[x, y] is { } lockedType)
@@ -417,65 +394,80 @@ public class ansiConsoleRenderer : iRenderer
             buffer.AppendLine(" [C]   Hold  [P] Pause   [Q] Quit                ");
 
             Console.Write(buffer.ToString());
-
-            // 75ms per golf-frame (8 * 75ms = 600ms pure arcade hype)
             Thread.Sleep(75);
         }
     }
-    
-    /*
-     * Rendert het klassieke arcade Game Over scherm met optionele High Score banner.
-     */
+
     public void RenderGameOverScreen(int finalScore, bool isNewHighScore, List<highScoreEntry> topScores)
     {
         Console.Clear();
         Console.Write(AnsiResetCursor);
 
-        int leftPadding = Math.Max(0, (Console.WindowWidth - LayoutWidth) / 2);
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
+        int topPadding = Math.Min(4, Math.Max(0, (windowHeight - 14) / 2));
         string pad = new(' ', leftPadding);
 
-        var buffer = new StringBuilder(2048);
-        buffer.AppendLine();
-        buffer.AppendLine();
-        buffer.Append(pad).AppendLine("\x1b[91m+-------------------------------------------+\x1b[0m");
-        buffer.Append(pad).AppendLine("\x1b[91m|                GAME OVER                  |\x1b[0m");
-        buffer.Append(pad).AppendLine("\x1b[91m+-------------------------------------------+\x1b[0m");
-        buffer.AppendLine();
+        const int innerWidth = 43;
+        const string horizontalBorder = "+-------------------------------------------+";
+        const string dividerLine = "|-------------------------------------------|";
 
-        if (isNewHighScore)
+        var buffer = new StringBuilder(2048);
+        buffer.Append(AnsiResetCursor);
+
+        for (int i = 0; i < topPadding; i++)
         {
-            buffer.Append(pad).AppendLine("\x1b[93m★ ★ ★   N E W   H I G H   S C O R E !   ★ ★ ★\x1b[0m");
             buffer.AppendLine();
         }
 
-        buffer.Append(pad).AppendLine($"  YOUR SCORE: \x1b[96m{finalScore}\x1b[0m");
-        buffer.AppendLine();
-        buffer.Append(pad).AppendLine("\x1b[90m----------------- TOP 5 --------------------\x1b[0m");
+        buffer.Append(pad).AppendLine(horizontalBorder);
 
-        for (int i = 0; i < topScores.Count; i++)
+        // 17 spaties links + 9 tekens + 17 spaties rechts = exact 43 tekens gecentreerd
+        string titleContent = isNewHighScore
+            ? "       \x1b[93m★ NIEUW RECORD! ★\x1b[0m       "
+            : "                 \x1b[91mGAME OVER\x1b[0m                 ";
+        buffer.Append(pad).AppendLine(FormatBoxRow(titleContent, innerWidth));
+
+        string scoreContent = $" SCORE: \x1b[96m{finalScore}\x1b[0m";
+        string rightTag = "TOP 5 LEADERBOARD ";
+        buffer.Append(pad).AppendLine(FormatSplitBoxRow(scoreContent, rightTag, innerWidth));
+
+        buffer.Append(pad).AppendLine(dividerLine);
+
+        for (int i = 0; i < 5; i++)
         {
-            var entry = topScores[i];
-            buffer.Append(pad).AppendLine($"  #{i + 1}  {entry.PlayerInitials,-4}  {entry.Score,7} PTS  (LVL {entry.Level}, {entry.Lines} L)");
+            string rowContent;
+            if (i < topScores.Count)
+            {
+                var entry = topScores[i];
+                rowContent = $" #{i + 1}  {entry.PlayerInitials,-4} {entry.Score,7} PTS   (LVL {entry.Level,-2} {entry.Lines,3}L)";
+            }
+            else
+            {
+                rowContent = $" #{i + 1}  ---        0 PTS   (LVL  0   0L)";
+            }
+
+            buffer.Append(pad).AppendLine(FormatBoxRow(rowContent, innerWidth));
         }
 
-        buffer.Append(pad).AppendLine("\x1b[90m--------------------------------------------\x1b[0m");
+        buffer.Append(pad).AppendLine(horizontalBorder);
         buffer.AppendLine();
+        buffer.Append(pad).AppendLine("    Druk op een toets om af te sluiten...    ");
 
         Console.Write(buffer.ToString());
     }
 
-    /*
-     * Vraagt 3 arcade-initialen op met cursor zichtbaar.
-     */
     public string PromptPlayerInitials()
     {
-        Console.CursorVisible = true;
-        Console.Write("\x1b[?25h"); // Cursor aanzetten
-
-        int leftPadding = Math.Max(0, (Console.WindowWidth - LayoutWidth) / 2);
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
         string pad = new(' ', leftPadding);
 
-        Console.Write($"{pad}\x1b[93mENTER INITIALS (3 CHARS): \x1b[0m");
+        Console.CursorVisible = true;
+        Console.Write("\x1b[?25h");
+
+        Console.Write($"{pad}>> INITIALS (3 CHARS): ");
         string? input = Console.ReadLine();
 
         Console.CursorVisible = false;
@@ -489,10 +481,47 @@ public class ansiConsoleRenderer : iRenderer
         string clean = input.Trim().ToUpperInvariant();
         return clean.Length > 3 ? clean[..3] : clean.PadRight(3, ' ');
     }
-    
-    /*
-     * Vult het speelveld rij voor rij van onder naar boven met grijze [X] blokken.
-     */
+
+    private static string FormatBoxRow(string content, int targetWidth)
+    {
+        int visibleLength = GetVisibleLength(content);
+        int paddingNeeded = Math.Max(0, targetWidth - visibleLength);
+        return $"|{content}{new string(' ', paddingNeeded)}|";
+    }
+
+    private static string FormatSplitBoxRow(string leftContent, string rightContent, int targetWidth)
+    {
+        int leftVisible = GetVisibleLength(leftContent);
+        int rightVisible = GetVisibleLength(rightContent);
+        int spaceBetween = Math.Max(1, targetWidth - (leftVisible + rightVisible));
+        return $"|{leftContent}{new string(' ', spaceBetween)}{rightContent}|";
+    }
+
+    private static int GetVisibleLength(string text)
+    {
+        int length = 0;
+        bool inEscape = false;
+
+        foreach (char c in text)
+        {
+            if (c == '\x1b')
+            {
+                inEscape = true;
+                continue;
+            }
+
+            if (inEscape)
+            {
+                if (c == 'm') inEscape = false;
+                continue;
+            }
+
+            length++;
+        }
+
+        return length;
+    }
+
     public void AnimateGameOverCurtain(
         board board,
         tetrominoType? heldPieceType,
@@ -506,7 +535,6 @@ public class ansiConsoleRenderer : iRenderer
         int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
         string pad = new(' ', leftPadding);
 
-        // Loop van de onderste rij (Rows - 1) tot de bovenste rij (0)
         for (int wipeY = board.Rows - 1; wipeY >= 0; wipeY--)
         {
             var buffer = new StringBuilder(4096);

@@ -96,7 +96,6 @@ public class gameEngine
 
     private void HandleGameOver()
     {
-        // 1. Speel de retro curtain wipe af
         _renderer.AnimateGameOverCurtain(_board, _heldPieceType, _factory, _scoreManager, _state);
         Thread.Sleep(200);
 
@@ -117,7 +116,7 @@ public class gameEngine
             _renderer.RenderGameOverScreen(finalScore, false, _highScoreService.Data.HighScores);
         }
 
-        Console.WriteLine("\n  Druk op een toets om af te sluiten...");
+        // Wacht rustig op de toetsaanslag zonder losse ongecentreerde tekst
         Console.ReadKey(intercept: true);
     }
 
