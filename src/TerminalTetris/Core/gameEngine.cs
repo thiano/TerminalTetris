@@ -96,25 +96,24 @@ public class gameEngine
 
     private void HandleGameOver()
     {
+        // 1. Speel de retro curtain wipe af
+        _renderer.AnimateGameOverCurtain(_board, _heldPieceType, _factory, _scoreManager, _state);
+        Thread.Sleep(200);
+
         int finalScore = _scoreManager.Score;
         int lines = _scoreManager.LinesCleared;
         int level = _scoreManager.Level;
 
-        // 1. Sla de lifetime stats van deze sessie direct op
         _highScoreService.RecordGameSession(lines, level, _tetrisClearsCount, _sessionStopwatch.Elapsed);
 
         bool isHighScore = _highScoreService.IsHighScore(finalScore);
 
-        // 2. Toon het arcade scorebord
         _renderer.RenderGameOverScreen(finalScore, isHighScore, _highScoreService.Data.HighScores);
 
-        // 3. Vraag om 3 arcade-initialen bij een top-5 notering
         if (isHighScore)
         {
             string initials = _renderer.PromptPlayerInitials();
             _highScoreService.AddHighScore(initials, finalScore, lines, level);
-
-            // Ververs het scherm met de nieuwe stand
             _renderer.RenderGameOverScreen(finalScore, false, _highScoreService.Data.HighScores);
         }
 

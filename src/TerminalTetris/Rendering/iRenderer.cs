@@ -35,4 +35,6 @@ public interface iRenderer
     // Nieuwe methodes voor Game Over & High Score:
     void RenderGameOverScreen(int finalScore, bool isNewHighScore, List<highScoreEntry> topScores);
     string PromptPlayerInitials();
+    
+    void AnimateGameOverCurtain(board board, tetrominoType? heldPieceType, tetrominoFactory factory, scoreManager scoreManager, gameState state); 
 }

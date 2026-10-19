@@ -489,4 +489,78 @@ public class ansiConsoleRenderer : iRenderer
         string clean = input.Trim().ToUpperInvariant();
         return clean.Length > 3 ? clean[..3] : clean.PadRight(3, ' ');
     }
+    
+    /*
+     * Vult het speelveld rij voor rij van onder naar boven met grijze [X] blokken.
+     */
+    public void AnimateGameOverCurtain(
+        board board,
+        tetrominoType? heldPieceType,
+        tetrominoFactory factory,
+        scoreManager scoreManager,
+        gameState state)
+    {
+        int windowWidth = Math.Max(Console.WindowWidth, LayoutWidth);
+        int windowHeight = Math.Max(Console.WindowHeight, LayoutHeight);
+        int leftPadding = Math.Max(0, (windowWidth - LayoutWidth) / 2);
+        int topPadding = Math.Max(0, (windowHeight - LayoutHeight) / 2);
+        string pad = new(' ', leftPadding);
+
+        // Loop van de onderste rij (Rows - 1) tot de bovenste rij (0)
+        for (int wipeY = board.Rows - 1; wipeY >= 0; wipeY--)
+        {
+            var buffer = new StringBuilder(4096);
+            buffer.Append(AnsiResetCursor);
+
+            for (int i = 0; i < topPadding; i++)
+            {
+                buffer.AppendLine();
+            }
+
+            buffer.Append(pad);
+            buffer.AppendLine("+---------------------+ +--------------------+");
+            buffer.Append(pad);
+            buffer.AppendLine("|     T E T R I S     | |        STATS       |");
+            buffer.Append(pad);
+            buffer.AppendLine("+---------------------+ +--------------------+");
+
+            for (int y = 0; y < board.Rows; y++)
+            {
+                buffer.Append(pad);
+                buffer.Append("|");
+
+                bool isWipedRow = y >= wipeY;
+
+                for (int x = 0; x < board.Columns; x++)
+                {
+                    if (isWipedRow)
+                    {
+                        buffer.Append("\x1b[90m[X]\x1b[0m");
+                    }
+                    else if (board[x, y] is { } lockedType)
+                    {
+                        buffer.Append(GetPieceColoredBlock(lockedType));
+                    }
+                    else
+                    {
+                        buffer.Append("\x1b[90m .\x1b[0m");
+                    }
+                }
+
+                buffer.Append("| | ");
+                buffer.Append(GetSidebarLine(y, heldPieceType, factory.PeekNextType(), scoreManager, state));
+                buffer.AppendLine(" |");
+            }
+
+            buffer.Append(pad);
+            buffer.AppendLine("+---------------------+ +--------------------+");
+            buffer.Append(pad);
+            buffer.AppendLine(" [A/D] Move  [W] Rotate  [S] Soft  [Space] Drop ");
+            buffer.Append(pad);
+            buffer.AppendLine(" [C]   Hold  [P] Pause   [Q] Quit                ");
+
+            Console.Write(buffer.ToString());
+            Thread.Sleep(30);
+        }
+    }
 }
